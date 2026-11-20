@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>抛物线乐园</title>
+  <link rel="stylesheet" href="style.css?v=1.0.2">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="top">
+      <div class="titles">
+        <h1>🎯 抛物线乐园</h1>
+        <p id="modeSub" class="sub">单人闯关 · 第 1 关</p>
+      </div>
+      <div class="meters" aria-live="polite">
+        <span id="meterWind" class="wind-pill">🍃 无风 0</span>
+        <span id="meterTurn">我方回合</span>
+        <span id="meterScore">得分 0</span>
+        <button type="button" id="btnSound" class="meter-btn" aria-pressed="true" title="音效开关">🔊</button>
+        <button type="button" id="btnMenu" class="meter-btn menu-btn" aria-expanded="false" title="选角与模式">菜单</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="stage" aria-label="抛物线乐园场地">
+        <div class="canvas-wrap">
+          <canvas id="board" width="840" height="470" role="img" aria-label="横版蓄力抛物线小游戏"></canvas>
+
+          <div id="modalOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+            <div class="modal-card">
+              <p id="modalKicker" class="modal-kicker">本局完成</p>
+              <h2 id="modalTitle">🎉 挑战成功！</h2>
+              <p id="modalSummary" class="modal-summary"></p>
+              <div class="modal-actions">
+                <button type="button" id="btnModalPrimary" class="primary">下一关</button>
+                <button type="button" id="btnModalSubmit">提交成绩</button>
+                <button type="button" id="btnModalRetry">重玩本局</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cockpit">
+          <div class="loadout-row">
+            <div class="weapon-group" role="group" aria-label="主副技能">
+              <button type="button" id="btnWep1" class="wep-btn active">
+                <span id="wep1Name">1号 普通</span><em>∞</em>
+              </button>
+              <button type="button" id="btnWep2" class="wep-btn">
+                <span id="wep2Name">2号 进阶</span><em id="wep2Cnt">3</em>
+              </button>
+            </div>
+            <div class="item-group" role="group" aria-label="辅助道具">
+              <button type="button" class="item-btn" data-item="tp" title="瞬移：下一发落到哪里就移到哪里">
+                <span>🌀 瞬移</span><em id="cntTp">1</em>
+              </button>
+              <button type="button" class="item-btn" data-item="heal" title="医疗包：立刻回复 40 体力">
+                <span>💊 回复</span><em id="cntHeal">1</em>
+              </button>
+              <button type="button" class="item-btn" data-item="power" title="加强：下一发效果提升75%">
+                <span>⚡ 加强</span><em id="cntPower">1</em>
+              </button>
+              <button type="button" class="item-btn" data-item="double" title="双发：本回合连续抛出两次">
+                <span>✨ 双发</span><em id="cntDouble">1</em>
+              </button>
+            </div>
+          </div>
+
+          <div class="ctrl-row">
+            <div class="move-group">
+              <button type="button" id="btnLeft" class="ctl-btn" title="向左移动 (A/←)">◀</button>
+              <button type="button" id="btnRight" class="ctl-btn" title="向右移动 (D/→)">▶</button>
+              <button type="button" id="btnAngDown" class="ctl-btn" title="降低仰角 (S/↓)">角-</button>
+              <button type="button" id="btnAngUp" class="ctl-btn" title="提高仰角 (W/↑)">角+</button>
+            </div>
+
+            <div class="power-wrap">
+              <div class="power-meta">
+                <span id="angleReadout">仰角 45°</span>
+                <span id="fuelReadout">燃料 100%</span>
+                <span id="powerReadout">力度 0%</span>
+              </div>
+              <div class="power-bar">
+                <div id="powerLastMark" class="power-mark hidden" title="上次抛出力度"></div>
+                <div id="powerFill" class="power-fill"></div>
+              </div>
+            </div>
+
+            <button type="button" id="btnFire" class="fire-btn" title="按住蓄力，在按钮上松手抛出。滑出按钮或按 Esc 取消" aria-label="按住蓄力，滑出或按 Esc 取消">
+              <span class="fire-label-full">按住抛出</span>
+              <span class="fire-label-short">抛出</span>
+            </button>
+          </div>
+        </div>
+        <p id="hint" class="hint" role="status">手机：拖动画布调角度，按住「抛出」蓄力松手发射。电脑可直接拖拽发射。</p>
+      </section>
+
+      <div id="sideBackdrop" class="side-backdrop" hidden></div>
+      <aside class="side" id="sidePanel" aria-label="选角、模式与排行榜">
+        <div class="panel">
+          <h2>选择出战角色</h2>
+          <div class="tank-grid" role="group" aria-label="选择角色">
+            <button type="button" class="tank-card active" data-tank="cannon">
+              <strong>🛡️ 夯夯</strong>
+              <span>高体力 · 大范围</span>
+            </button>
+            <button type="button" class="tank-card" data-tank="cross">
+              <strong>⚡ 闪闪</strong>
+              <span>机动 · 三连</span>
+            </button>
+            <button type="button" class="tank-card" data-tank="meteor">
+              <strong>🚀 星轨</strong>
+              <span>精准 · 寻踪</span>
+            </button>
+            <button type="button" class="tank-card" data-tank="dragon">
+              <strong>🔥 焰焰</strong>
+              <span>控制 · 持续区</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>模式</h2>
+          <div class="mode-row" role="group" aria-label="选择模式">
+            <button type="button" id="btnCampaign" class="chip active">单人闯关</button>
+            <button type="button" id="btnDaily" class="chip">每日同种</button>
+            <button type="button" id="btnPvp" class="chip full-span">👥 双人同屏</button>
+          </div>
+          <p class="muted tight" id="modeDesc">悬空桥可挖开，把对方送进凹地或落入水区！</p>
+        </div>
+
+        <div class="panel">
+          <h2>操作</h2>
+          <div class="actions">
+            <button type="button" id="btnRestart">重开本局</button>
+            <button type="button" id="btnTutorial">玩法说明</button>
+            <button type="button" id="btnSubmit" disabled>提交成绩</button>
+            <button type="button" id="btnAutoSubmit" class="chip" aria-pressed="false">自动提交</button>
+          </div>
+        </div>
+
+        <div class="panel board-panel">
+          <div class="board-head">
+            <h2>排行榜</h2>
+            <button type="button" id="btnRefreshBoard" class="linkish">刷新</button>
+          </div>
+          <p id="boardMeta" class="muted">按总分排行</p>
+          <ol id="boardList" class="board-list"></ol>
+          <p id="boardMine" class="muted"></p>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script defer src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
+  <script defer src="app.js?v=1.0.3"></script>
+</body>
+</html>

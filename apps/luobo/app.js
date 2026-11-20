@@ -1,9 +1,14 @@
 (async function () {
   'use strict';
 
-  var BOARD_ID_ENDLESS = 'luobo-endless-v3';
-  var BOARD_ID_DAILY = 'luobo-daily-v3-';
-  var BOARD_ID_MAP = 'luobo-map-v3-';
+  // 榜 ID 必须长期固定！随版本改号 = 旧成绩全消失（曾误改为 v3 导致榜空）
+  var BOARD_ID_ENDLESS = 'luobo-endless-v2';
+  var BOARD_ID_DAILY = 'luobo-daily-v2-';
+  var BOARD_ID_MAP = 'luobo-map-v2-';
+  // 误用过的历史榜，仅读榜合并展示，不再作为提交主榜
+  var BOARD_LEGACY_ENDLESS = ['luobo-endless-v3'];
+  var BOARD_LEGACY_DAILY = ['luobo-daily-v3-'];
+  var BOARD_LEGACY_MAP = ['luobo-map-v3-'];
   var SAVE_KEY = 'luobo.progress.v2';
   var POLL_MS = 25000;
   /** 无尽/每日榜：高位波次优先，低位质量分次排序（防清障/囤金币刷分） */
@@ -43,7 +48,11 @@
     btnMap2: document.getElementById('btnMap2'),
     btnEndless: document.getElementById('btnEndless'),
     btnDaily: document.getElementById('btnDaily'),
+    modeDesc: document.getElementById('modeDesc'),
+    boardTitle: document.getElementById('boardTitle'),
+    endStats: document.getElementById('endStats'),
     mapRecord: document.getElementById('mapRecord'),
+    towerLegend: document.getElementById('towerLegend'),
     btnRestart: document.getElementById('btnRestart'),
     btnTutorial: document.getElementById('btnTutorial'),
     btnSubmit: document.getElementById('btnSubmit'),
@@ -159,11 +168,13 @@
   }
 
   // --- 随机与日期 ---
+  /** 北京时间日历日（UTC+8），保证每日挑战全服同日；静态包无服务器日 */
   function todayKey() {
-    var d = new Date();
-    return d.getFullYear() + '-' +
-      String(d.getMonth() + 1).padStart(2, '0') + '-' +
-      String(d.getDate()).padStart(2, '0');
+    var ms = Date.now() + 8 * 3600 * 1000;
+    var d = new Date(ms);
+    return d.getUTCFullYear() + '-' +
+      String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getUTCDate()).padStart(2, '0');
   }
 
   function mulberry32(a) {
@@ -185,10 +196,13 @@
   }
 
   // --- 炮塔配置（4种×3级 + 4种满级合成体） ---
+  // 合成锚点：相对「两座同系 3 级」单目标理论 DPS ≥ 约 1.05×（连环靠连发）
   var TOWERS = {
     bottle: {
       id: 'bottle', name: '瓶子炮', icon: '🟢', color: '#2ecc71',
       fire: 'shot', maxLevel: 2, fuseTo: 'molten',
+      role: '持续单体 · 前期经济输出',
+      fit: '适合集火关键怪、清障碍',
       cost: [100, 160, 240],
       dmg: [18, 34, 62],
       rate: [0.46, 0.36, 0.26],
@@ -197,6 +211,8 @@
     frost: {
       id: 'frost', name: '冰冻星', icon: '❄️', color: '#4cc9f0',
       fire: 'aura', maxLevel: 2, fuseTo: 'blizzard',
+      role: '群体减速 · 控场',
+      fit: '怪多、需要拖时间时优先',
       cost: [120, 180, 260],
       dmg: [11, 20, 34],
       rate: [1.22, 1.08, 0.92],
@@ -207,6 +223,8 @@
     sun: {
       id: 'sun', name: '太阳花', icon: '☀️', color: '#ff9f1c',
       fire: 'aura', maxLevel: 2, fuseTo: 'solar',
+      role: '群体持续伤害',
+      fit: '路径拐弯、怪物扎堆处',
       cost: [160, 220, 320],
       dmg: [22, 42, 74],
       rate: [1.02, 0.88, 0.74],
@@ -215,6 +233,8 @@
     rocket: {
       id: 'rocket', name: '火箭炮', icon: '🚀', color: '#ef476f',
       fire: 'shot', maxLevel: 2, fuseTo: 'nuke',
+      role: '远程溅射爆发',
+      fit: '坦克怪、Boss、集群',
       cost: [200, 260, 380],
       dmg: [48, 86, 155],
       rate: [1.32, 1.12, 0.94],
@@ -224,27 +244,124 @@
     molten: {
       id: 'molten', name: '熔岩瓶', icon: '🌋', color: '#e85d04',
       fire: 'shot', maxLevel: 0, isFusion: true,
-      cost: [0], dmg: [98], rate: [0.34], range: [155], splash: 58
+      role: '范围爆炸 + 灼烧',
+      fit: '命中后持续掉血，省一座塔位',
+      special: '灼烧',
+      cost: [0], dmg: [145], rate: [0.28], range: [180], splash: 85,
+      burnDps: 28, burnDur: 2.2
     },
     blizzard: {
       id: 'blizzard', name: '暴风雪', icon: '🌨️', color: '#48cae4',
       fire: 'aura', maxLevel: 0, isFusion: true,
-      cost: [0], dmg: [30], rate: [0.82], range: [132],
-      slow: [0.32], slowDur: 2.4
+      role: '强减速 + 短暂冻结',
+      fit: '卡住冲线怪，给输出塔时间',
+      special: '冻结',
+      cost: [0], dmg: [52], rate: [0.65], range: [158],
+      slow: [0.22], slowDur: 2.8,
+      freezeDur: 0.65, freezeCd: 3.2
     },
     solar: {
       id: 'solar', name: '烈日塔', icon: '🔆', color: '#f4a261',
       fire: 'aura', maxLevel: 0, isFusion: true,
-      cost: [0], dmg: [58], rate: [0.92], range: [128]
+      role: '群体灼烧叠层',
+      fit: '怪越密收益越高',
+      special: '叠层灼烧',
+      cost: [0], dmg: [125], rate: [0.58], range: [155],
+      burnPerHit: 14, burnDur: 2.4, burnStackMax: 4
     },
     nuke: {
       id: 'nuke', name: '连环炮', icon: '💥', color: '#9b2226',
       fire: 'shot', maxLevel: 0, isFusion: true,
-      cost: [0], dmg: [155], rate: [1.2], range: [210], splash: 92
+      role: '多弹连发 + 大溅射',
+      fit: 'Boss 与高血量怪',
+      special: '三连发',
+      cost: [0], dmg: [120], rate: [0.78], range: [250], splash: 125,
+      volley: 3
     }
   };
 
   var TOWER_ORDER = ['bottle', 'frost', 'sun', 'rocket'];
+  var FUSION_ORDER = ['molten', 'blizzard', 'solar', 'nuke'];
+
+  function towerDps(cfg, lv) {
+    var rate = cfg.rate[lv];
+    if (!rate) return 0;
+    var mult = cfg.volley || 1;
+    return (cfg.dmg[lv] * mult) / rate;
+  }
+
+  function towerStatLine(cfg, lv) {
+    var dmg = cfg.dmg[lv];
+    var rate = cfg.rate[lv];
+    var dps = Math.round(towerDps(cfg, lv));
+    var bits = [
+      '伤' + dmg,
+      '间隔' + rate.toFixed(2) + 's',
+      '≈' + dps + '/秒',
+      '射程' + cfg.range[lv]
+    ];
+    if (cfg.volley) bits.push(cfg.volley + '连发');
+    if (cfg.splash) bits.push('溅射' + cfg.splash);
+    if (cfg.slow) bits.push('减速×' + cfg.slow[Math.min(lv, cfg.slow.length - 1)]);
+    if (cfg.burnDps) bits.push('灼烧' + cfg.burnDps + '/秒');
+    if (cfg.freezeDur) bits.push('冻结' + cfg.freezeDur + 's');
+    if (cfg.burnPerHit) bits.push('叠灼烧');
+    return bits.join(' · ');
+  }
+
+  function emptyStats() {
+    return {
+      totalDmg: 0,
+      kills: 0,
+      fusions: 0,
+      leaks: 0,
+      controlSec: 0,
+      byKind: {}
+    };
+  }
+
+  function noteShot(kind) {
+    if (!state.stats) return;
+    if (!state.stats.byKind[kind]) state.stats.byKind[kind] = { dmg: 0, kills: 0, shots: 0 };
+    state.stats.byKind[kind].shots += 1;
+  }
+
+  function noteDamage(kind, amount, killed) {
+    if (!state.stats || !(amount > 0)) return;
+    if (!state.stats.byKind[kind]) state.stats.byKind[kind] = { dmg: 0, kills: 0, shots: 0 };
+    state.stats.byKind[kind].dmg += amount;
+    state.stats.totalDmg += amount;
+    if (killed) {
+      state.stats.byKind[kind].kills += 1;
+      state.stats.kills += 1;
+    }
+  }
+
+  function renderTowerLegend() {
+    if (!els.towerLegend) return;
+    var html = '';
+    TOWER_ORDER.forEach(function (id) {
+      var cfg = TOWERS[id];
+      var fuse = cfg.fuseTo ? TOWERS[cfg.fuseTo] : null;
+      var twoDps = Math.round(towerDps(cfg, 2) * 2);
+      var fuseDps = fuse ? Math.round(towerDps(fuse, 0)) : 0;
+      html +=
+        '<div class="legend-item"><span>' + cfg.icon + ' ' + cfg.name +
+        '（' + cfg.cost[0] + '金）</span><em>' + cfg.role +
+        '<br>3级：' + towerStatLine(cfg, 2) +
+        '<br>' + cfg.fit +
+        (fuse
+          ? ('<br>合成' + fuse.icon + fuse.name + '：' + towerStatLine(fuse, 0) +
+            '<br>对比两座3级 ≈' + twoDps + '/秒 → 合成 ≈' + fuseDps + '/秒' +
+            (fuse.special ? (' · ' + fuse.special) : ''))
+          : '') +
+        '</em></div>';
+    });
+    html +=
+      '<div class="legend-item"><span>✨ 相邻合成</span>' +
+      '<em>同种同级相邻→免费升1级；两座3级→合成体。合成占1格，理论输出≥两座3级约1.05倍，并带专属机制。</em></div>';
+    els.towerLegend.innerHTML = html;
+  }
 
   // --- 障碍物类型 ---
   var OBSTACLE_KINDS = [
@@ -434,7 +551,8 @@
       ended: false,
       won: false,
       submitted: false,
-      kills: 0
+      kills: 0,
+      stats: emptyStats()
     };
 
     userPaused = false;
@@ -642,15 +760,36 @@
     return { wave: '', score: String(raw) };
   }
 
-  function damageMonster(m, dmg, slowFactor, slowDur) {
+  function applyBurn(m, dps, dur, stacksAdd, stackMax, kind) {
+    if (!(dps > 0) || !(dur > 0)) return;
+    m.burnKind = kind || m.burnKind || 'molten';
+    m.burnStacks = Math.min((stackMax || 1), (m.burnStacks || 0) + (stacksAdd || 1));
+    m.burnDps = dps * (m.burnStacks || 1);
+    m.burnTimer = Math.max(m.burnTimer || 0, dur);
+  }
+
+  function damageMonster(m, dmg, slowFactor, slowDur, meta) {
     if (m.dead) return;
+    meta = meta || {};
+    var dealt = Math.min(m.hp, dmg);
     m.hp -= dmg;
     m.flash = 0.1;
     if (slowFactor && slowDur) {
       m.slowFactor = Math.min(m.slowFactor || 1, slowFactor);
       m.slowTimer = Math.max(m.slowTimer || 0, slowDur);
     }
-    if (m.hp <= 0) {
+    if (meta.freezeDur && meta.freezeDur > 0) {
+      m.freezeTimer = Math.max(m.freezeTimer || 0, meta.freezeDur);
+    }
+    if (meta.burnDps) {
+      applyBurn(m, meta.burnDps, meta.burnDur || 2, 1, 1, meta.kind);
+    }
+    if (meta.burnPerHit) {
+      applyBurn(m, meta.burnPerHit, meta.burnDur || 2.4, 1, meta.burnStackMax || 4, meta.kind);
+    }
+    var killed = m.hp <= 0;
+    if (meta.kind) noteDamage(meta.kind, dealt, killed);
+    if (killed) {
       m.dead = true;
       state.gold += m.reward;
       state.kills += 1;
@@ -743,7 +882,24 @@
         m.slowTimer -= simDt;
         if (m.slowTimer <= 0) m.slowFactor = 1;
       }
-      var move = m.speed * m.slowFactor * simDt;
+      if (m.freezeTimer > 0) {
+        m.freezeTimer -= simDt;
+        if (state.stats) state.stats.controlSec += simDt;
+      }
+      if (m.burnTimer > 0 && m.burnDps > 0) {
+        var burnHit = m.burnDps * simDt;
+        m.burnTimer -= simDt;
+        damageMonster(m, burnHit, null, null, { kind: m.burnKind || 'molten' });
+        if (m.dead) {
+          state.monsters.splice(i, 1);
+          continue;
+        }
+        if (m.burnTimer <= 0) {
+          m.burnDps = 0;
+          m.burnStacks = 0;
+        }
+      }
+      var move = (m.freezeTimer > 0) ? 0 : (m.speed * m.slowFactor * simDt);
       m.progress += move;
 
       while (move > 0 && m.segIdx < state.pixelPath.length - 1) {
@@ -767,6 +923,7 @@
       if (m.segIdx >= state.pixelPath.length - 1) {
         state.hp = Math.max(0, state.hp - m.dmgToCarrot);
         state.carrotShake = 0.45;
+        if (state.stats) state.stats.leaks += 1;
         sfxBite();
         spawnFloat(m.x, m.y - 18, '-' + m.dmgToCarrot + ' ❤️', '#ff595e');
         if (state.focusMonster === m) state.focusMonster = null;
@@ -785,6 +942,7 @@
       var lv = Math.min(t.level, (cfg.dmg.length - 1));
       var range = cfg.range[lv];
       if (t.cd > 0) t.cd -= simDt;
+      if (t.specialCd > 0) t.specialCd -= simDt;
       if (t.cd > 0) return;
 
       // 范围光环塔（太阳花 / 冰冻星 / 合成体）
@@ -801,10 +959,18 @@
 
         if (shouldFire) {
           var dmg = cfg.dmg[lv];
-          var slowF = cfg.slow ? cfg.slow[lv] : null;
+          var slowF = cfg.slow ? cfg.slow[Math.min(lv, cfg.slow.length - 1)] : null;
+          var doFreeze = cfg.freezeDur && (!(t.specialCd > 0));
+          if (doFreeze) t.specialCd = cfg.freezeCd || 3;
+          noteShot(t.kind);
           inRangeMonsters.forEach(function (m) {
-            if (slowF != null) damageMonster(m, dmg, slowF, cfg.slowDur);
-            else damageMonster(m, dmg);
+            damageMonster(m, dmg, slowF, cfg.slowDur, {
+              kind: t.kind,
+              freezeDur: doFreeze ? cfg.freezeDur : 0,
+              burnPerHit: cfg.burnPerHit || 0,
+              burnDur: cfg.burnDur || 0,
+              burnStackMax: cfg.burnStackMax || 0
+            });
           });
           inRangeObs.forEach(function (ob) {
             damageObstacle(ob, slowF != null ? Math.round(dmg * 0.6) : dmg);
@@ -847,18 +1013,38 @@
         t.angle = Math.atan2(aimTarget.y - t.y, aimTarget.x - t.x);
         t.cd = cfg.rate[lv];
         sfxShoot(t.kind);
-        state.projectiles.push({
-          kind: t.kind,
-          x: t.x + Math.cos(t.angle) * 14,
-          y: t.y + Math.sin(t.angle) * 14,
-          tx: aimTarget.x, ty: aimTarget.y,
-          target: aimTarget,
-          isObs: isObs,
-          dmg: cfg.dmg[lv],
-          splash: cfg.splash || 0,
-          speed: cfg.splash ? 370 : 480,
-          color: cfg.color
-        });
+        noteShot(t.kind);
+        var volley = cfg.volley || 1;
+        var targets = [aimTarget];
+        if (volley > 1 && !isObs) {
+          var extras = state.monsters
+            .filter(function (m) {
+              return m !== aimTarget && !m.dead &&
+                Math.hypot(m.x - t.x, m.y - t.y) <= range + m.radius;
+            })
+            .sort(function (a, b) { return b.progress - a.progress; });
+          for (var v = 0; v < volley - 1; v++) {
+            targets.push(extras[v] || aimTarget);
+          }
+        }
+        for (var vi = 0; vi < targets.length; vi++) {
+          var tgt = targets[vi];
+          var ang = Math.atan2(tgt.y - t.y, tgt.x - t.x) + (vi - (targets.length - 1) / 2) * 0.08;
+          state.projectiles.push({
+            kind: t.kind,
+            x: t.x + Math.cos(ang) * 14,
+            y: t.y + Math.sin(ang) * 14,
+            tx: tgt.x, ty: tgt.y,
+            target: tgt,
+            isObs: isObs && vi === 0,
+            dmg: cfg.dmg[lv],
+            splash: cfg.splash || 0,
+            speed: cfg.splash ? 370 : 480,
+            color: cfg.color,
+            burnDps: cfg.burnDps || 0,
+            burnDur: cfg.burnDur || 0
+          });
+        }
       }
     });
 
@@ -875,12 +1061,17 @@
       var pstep = pr.speed * simDt;
 
       if (pdist <= pstep + 8) {
+        var hitMeta = {
+          kind: pr.kind,
+          burnDps: pr.burnDps || 0,
+          burnDur: pr.burnDur || 0
+        };
         if (pr.splash > 0) {
           sfxBoom();
           state.rings.push({ x: pr.tx, y: pr.ty, r: 10, maxR: pr.splash, color: pr.color || '#ef476f', life: 0.24 });
           state.monsters.forEach(function (m) {
             if (!m.dead && Math.hypot(m.x - pr.tx, m.y - pr.ty) <= pr.splash + m.radius) {
-              damageMonster(m, pr.dmg);
+              damageMonster(m, pr.dmg, null, null, hitMeta);
             }
           });
           state.obstacles.forEach(function (ob) {
@@ -890,7 +1081,7 @@
           });
         } else if (pr.target) {
           if (pr.isObs) damageObstacle(pr.target, pr.dmg);
-          else damageMonster(pr.target, pr.dmg);
+          else damageMonster(pr.target, pr.dmg, null, null, hitMeta);
         }
         state.projectiles.splice(p, 1);
       } else {
@@ -959,6 +1150,28 @@
       ' · 消灭怪物：' + state.kills +
       ' · 萝卜剩余：' + state.hp + '/' + state.maxHp +
       ' · 榜分：' + formatLeaderScore(boardScore);
+
+    if (els.endStats) {
+      var st = state.stats || emptyStats();
+      var rows = Object.keys(st.byKind).map(function (k) {
+        return { k: k, dmg: st.byKind[k].dmg || 0, kills: st.byKind[k].kills || 0 };
+      }).sort(function (a, b) { return b.dmg - a.dmg; });
+      var html = '<strong>本局战斗统计</strong>';
+      html += '<div class="stat-row"><span>总伤害</span><span>' + Math.round(st.totalDmg) + '</span></div>';
+      html += '<div class="stat-row"><span>击杀 / 漏怪 / 合成</span><span>' +
+        state.kills + ' / ' + st.leaks + ' / ' + st.fusions + '</span></div>';
+      if (st.controlSec > 0) {
+        html += '<div class="stat-row"><span>冻结控制</span><span>' + st.controlSec.toFixed(1) + ' 秒</span></div>';
+      }
+      rows.slice(0, 6).forEach(function (row) {
+        var cfg = TOWERS[row.k];
+        var name = cfg ? (cfg.icon + ' ' + cfg.name) : row.k;
+        var pct = st.totalDmg > 0 ? ((row.dmg / st.totalDmg) * 100).toFixed(1) : '0.0';
+        html += '<div class="stat-row"><span>' + name + '</span><span>' +
+          Math.round(row.dmg) + '（' + pct + '%）</span></div>';
+      });
+      els.endStats.innerHTML = html;
+    }
 
     // 关卡模式通关时显示下一关按钮
     var hasNextMap = won && (mode === 'map0' || mode === 'map1');
@@ -1186,7 +1399,13 @@
       // 本体
       ctx.beginPath();
       ctx.arc(m.x, m.y + bob, m.radius, 0, Math.PI * 2);
-      ctx.fillStyle = m.flash > 0 ? '#ffffff' : (m.slowTimer > 0 ? '#64dfdf' : m.color);
+      ctx.fillStyle = m.flash > 0
+        ? '#ffffff'
+        : (m.freezeTimer > 0
+          ? '#a0e7ff'
+          : (m.burnTimer > 0
+            ? '#ff7b54'
+            : (m.slowTimer > 0 ? '#64dfdf' : m.color)));
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.55)';
       ctx.lineWidth = 2;
@@ -1310,6 +1529,8 @@
       keep.level = 0;
       keep.invested = invested;
       keep.cd = 0;
+      keep.specialCd = 0;
+      if (state.stats) state.stats.fusions += 1;
       spawnBurst(keep.x, keep.y, fused.color, 18);
       spawnFloat(keep.x, keep.y, '合成 ' + fused.name + '！', fused.color);
       sfxWin();
@@ -1371,6 +1592,23 @@
       var isMax = isFusion || tower.level >= maxLv;
       var upCost = isMax ? 0 : cfg.cost[tower.level + 1];
       var partner = findAdjacentMergePartner(tower);
+      var lvNow = isFusion ? 0 : tower.level;
+      var dpsNow = Math.round(towerDps(cfg, lvNow));
+
+      var info = document.createElement('p');
+      info.className = 'tm-info';
+      var infoBits = cfg.name + (isFusion ? '（合成体）' : (' Lv.' + (tower.level + 1)));
+      infoBits += '\n' + towerStatLine(cfg, lvNow);
+      if (cfg.role) infoBits += '\n' + cfg.role;
+      if (!isFusion && !isMax) {
+        var nextLv = tower.level + 1;
+        var dpsNext = Math.round(towerDps(cfg, nextLv));
+        infoBits += '\n升级→伤' + cfg.dmg[nextLv] + ' · ≈' + dpsNext + '/秒（+' +
+          (dpsNext - dpsNow) + '）· 花费 ' + upCost + '金';
+      }
+      if (isFusion && cfg.special) infoBits += '\n专属：' + cfg.special;
+      info.textContent = infoBits;
+      els.tileMenu.appendChild(info);
 
       if (!isFusion) {
         var upBtn = document.createElement('button');
@@ -1392,20 +1630,21 @@
           updateHud();
         });
         els.tileMenu.appendChild(upBtn);
-      } else {
-        var tagBtn = document.createElement('button');
-        tagBtn.type = 'button';
-        tagBtn.className = 'tm-btn';
-        tagBtn.disabled = true;
-        tagBtn.innerHTML =
-          '<span class="tm-ico">' + cfg.icon + '</span>' +
-          '<span class="tm-name">' + cfg.name + '（合成体）</span>' +
-          '<span class="tm-cost">合</span>';
-        els.tileMenu.appendChild(tagBtn);
       }
 
       if (partner) {
         var fuseCfg = isMax && cfg.fuseTo ? TOWERS[cfg.fuseTo] : null;
+        if (fuseCfg) {
+          var prevDps = Math.round(towerDps(cfg, 2) * 2);
+          var nextDps = Math.round(towerDps(fuseCfg, 0));
+          var preview = document.createElement('p');
+          preview.className = 'tm-preview';
+          preview.textContent =
+            '合成预览：2座→1座 · 投入不变 · 占格 2→1\n' +
+            '单目标 ≈' + prevDps + '/秒 → ≈' + nextDps + '/秒' +
+            (fuseCfg.special ? (' · ' + fuseCfg.special) : '');
+          els.tileMenu.appendChild(preview);
+        }
         var mergeBtn = document.createElement('button');
         mergeBtn.type = 'button';
         mergeBtn.className = 'tm-btn';
@@ -1437,7 +1676,7 @@
       sellBtn.className = 'tm-btn sell';
       sellBtn.innerHTML =
         '<span class="tm-ico">💰</span>' +
-        '<span class="tm-name">拆除</span>' +
+        '<span class="tm-name">拆除·退80%</span>' +
         '<span class="tm-cost">+' + refund + '</span>';
       sellBtn.addEventListener('click', function () {
         state.gold += refund;
@@ -1550,6 +1789,21 @@
     els.meterScore.textContent = '得分 ' + state.score;
     els.modeSub.textContent = state.mapDef.name + (state.maxWaves < 900 ? (' · ' + state.maxWaves + ' 波守卫') : ' · 无限波次');
 
+    if (els.modeDesc) {
+      if (mode === 'map0') {
+        els.modeDesc.textContent = '新手推荐 · 10波 · 熟悉造塔/升级/合成 · 本图长期榜';
+      } else if (mode === 'map1') {
+        els.modeDesc.textContent = '进阶 · 12波 · 路线更绕、怪更厚 · 本图长期榜';
+      } else if (mode === 'map2') {
+        els.modeDesc.textContent = '高难 · 15波 · 最长路径 · 通关三图徽章齐全 · 本图长期榜';
+      } else if (mode === 'endless') {
+        els.modeDesc.textContent = '无限波次 · 长期排行榜 · 先比波次再比质量分';
+      } else {
+        els.modeDesc.textContent =
+          '北京时间 ' + todayKey() + ' · 全服同图同种子 · 15波 · 仅今日榜（零点换榜）';
+      }
+    }
+
     els.btnNextWave.disabled = state.ended || state.inWave || state.wave >= state.maxWaves;
     els.btnNextWave.textContent = (!state.inWave && state.wave < state.maxWaves && !state.ended)
       ? ('▶ 出怪 (' + Math.ceil(Math.max(0, state.autoWaveTimer)) + 's)')
@@ -1583,6 +1837,56 @@
     if (mode === 'endless') return BOARD_ID_ENDLESS;
     if (mode === 'daily') return BOARD_ID_DAILY + todayKey();
     return BOARD_ID_MAP + mode;
+  }
+
+  /** 当前模式要查询的全部榜（主榜 + 历史误改榜），用于读榜合并 */
+  function boardIdsForRead() {
+    var primary = currentBoardId();
+    var ids = [primary];
+    if (mode === 'endless') {
+      BOARD_LEGACY_ENDLESS.forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); });
+    } else if (mode === 'daily') {
+      var day = todayKey();
+      BOARD_LEGACY_DAILY.forEach(function (prefix) {
+        var id = prefix + day;
+        if (ids.indexOf(id) < 0) ids.push(id);
+      });
+    } else {
+      BOARD_LEGACY_MAP.forEach(function (prefix) {
+        var id = prefix + mode;
+        if (ids.indexOf(id) < 0) ids.push(id);
+      });
+    }
+    return ids;
+  }
+
+  function mergeBoardItems(lists) {
+    var best = {};
+    lists.forEach(function (items) {
+      (items || []).forEach(function (row) {
+        var key = row.isMe ? '__me__' : ('n:' + (row.displayName || ''));
+        var prev = best[key];
+        if (!prev || Number(row.score) > Number(prev.score)) {
+          best[key] = {
+            displayName: row.displayName,
+            score: row.score,
+            isMe: !!row.isMe
+          };
+        }
+      });
+    });
+    var merged = Object.keys(best).map(function (k) { return best[k]; });
+    merged.sort(function (a, b) {
+      return Number(b.score) - Number(a.score);
+    });
+    return merged.map(function (row, i) {
+      return {
+        rank: i + 1,
+        displayName: row.displayName,
+        score: row.score,
+        isMe: row.isMe
+      };
+    });
   }
 
   async function persistProgress() {
@@ -1643,20 +1947,41 @@
 
   async function refreshBoard() {
     var bid = currentBoardId();
-    els.boardMeta.textContent = isProgressMode()
-      ? (state.mapDef.name + ' · 先比波次，再比质量分')
-      : (state.mapDef.name + ' · 按总分排行');
+    if (els.boardTitle) {
+      if (mode === 'daily') els.boardTitle.textContent = '当前榜：每日挑战';
+      else if (isProgressMode()) els.boardTitle.textContent = '当前榜：无尽生存';
+      else els.boardTitle.textContent = '当前榜：' + state.mapDef.name;
+    }
+    if (mode === 'daily') {
+      els.boardMeta.textContent = '每日挑战 · ' + todayKey() + '（北京时间）· 仅今日 · 先比波次';
+    } else if (isProgressMode()) {
+      els.boardMeta.textContent = '长期榜 · 先比波次再比质量分 · 不随版本清空';
+    } else {
+      els.boardMeta.textContent = '闯关长期榜 · 不按天刷新 · 不随版本清空';
+    }
     try {
       var me = await sdk.scores.me();
       if (!me.loggedIn) els.boardMeta.textContent += '（游客可看榜）';
-      var list = await sdk.scores.list({ boardId: bid, verified: false, limit: 15 });
-      var items = list.items || [];
+      var ids = boardIdsForRead();
+      var lists = [];
+      for (var i = 0; i < ids.length; i++) {
+        try {
+          var list = await sdk.scores.list({ boardId: ids[i], verified: false, limit: 15 });
+          lists.push(list.items || []);
+        } catch (_) {
+          lists.push([]);
+        }
+      }
+      var items = mergeBoardItems(lists);
       if (items.length) {
         var self = items.filter(function (x) { return x.isMe; })[0];
         var mine = self ? ('我的名次 #' + self.rank + ' · ' + formatLeaderScore(self.score)) : '';
         renderBoard(items, mine);
       } else {
         var lb = progress.best[bid] || 0;
+        if (!lb && mode === 'endless') lb = progress.best['luobo-endless-v3'] || 0;
+        if (!lb && mode === 'daily') lb = progress.best['luobo-daily-v3-' + todayKey()] || 0;
+        if (!lb && mode.indexOf('map') === 0) lb = progress.best['luobo-map-v3-' + mode] || 0;
         renderBoard(lb ? [{ rank: 1, displayName: '我（本地）', score: lb, isMe: true }] : [], lb ? '本地最佳' : '');
       }
     } catch (_) {
@@ -1679,7 +2004,9 @@
         els.btnEndSubmit.disabled = false;
         return;
       }
-      await sdk.scores.submit({ boardId: currentBoardId(), score: leaderScore() });
+      var score = leaderScore();
+      // 只写入稳定主榜；读榜时再合并历史榜，避免再改号丢成绩
+      await sdk.scores.submit({ boardId: currentBoardId(), score: score });
       state.submitted = true;
       els.hint.textContent = options.auto ? '已自动提交成绩' : '成绩已提交！';
       await refreshBoard();
@@ -1776,6 +2103,7 @@
 
     await loadProgress();
     if (platformMuted) soundOn = false;
+    renderTowerLegend();
     layoutCanvas();
     initGame();
     refreshBoard();

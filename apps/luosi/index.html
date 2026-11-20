@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>疯狂打螺丝</title>
+  <link rel="stylesheet" href="style.css?v=1.0.0">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="top">
+      <div class="titles">
+        <h1>🔩 疯狂打螺丝</h1>
+        <p id="modeSub" class="sub">复杂 · 闯关 · 第 1 关</p>
+      </div>
+      <div class="meters" aria-live="polite">
+        <span id="meterLeft">剩余 0 颗</span>
+        <span id="meterScore">得分 0</span>
+        <span id="meterTime">0:00</span>
+        <button type="button" id="btnSound" class="meter-btn" aria-pressed="true" title="音效开关">🔊</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="stage" aria-label="打螺丝盘面">
+        <div class="canvas-wrap">
+          <canvas id="board" width="440" height="640" role="img" aria-label="点击未被遮挡的螺丝拧下并分类打包"></canvas>
+
+          <!-- 过关 / 失败遮罩 -->
+          <div id="modalOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+            <div class="modal-card">
+              <p id="modalKicker" class="modal-kicker">完美拆解</p>
+              <h2 id="modalTitle">🎉 过关成功！</h2>
+              <p id="modalSummary" class="modal-summary"></p>
+              <div class="modal-actions">
+                <button type="button" id="btnModalPrimary" class="primary">下一关</button>
+                <button type="button" id="btnModalSubmit">提交成绩</button>
+                <button type="button" id="btnModalRetry">重玩本关</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部4大道具栏 -->
+        <div class="tool-bar">
+          <button type="button" id="btnPropSlot" class="prop-btn" title="临时孔位 +1">
+            <span class="prop-ico">➕</span>
+            <span class="prop-txt">加孔位</span>
+            <em id="cntSlot" class="prop-cnt">2</em>
+          </button>
+          <button type="button" id="btnPropBox" class="prop-btn" title="解锁顶部带锁收纳盒">
+            <span class="prop-ico">📦</span>
+            <span class="prop-txt">开新盒</span>
+            <em id="cntBox" class="prop-cnt">2</em>
+          </button>
+          <button type="button" id="btnPropHammer" class="prop-btn" title="选一块亚克力板直接砸碎">
+            <span class="prop-ico">🔨</span>
+            <span class="prop-txt">砸碎板</span>
+            <em id="cntHammer" class="prop-cnt">1</em>
+          </button>
+          <button type="button" id="btnPropMagnet" class="prop-btn" title="磁吸补齐首个收纳盒">
+            <span class="prop-ico">🧲</span>
+            <span class="prop-txt">磁吸</span>
+            <em id="cntMagnet" class="prop-cnt">1</em>
+          </button>
+        </div>
+        <p id="hint" class="hint" role="status">点击亮起的螺丝拧下，凑齐 3 颗同色打包！只剩 1 颗螺丝的板子会受重力下垂摆动</p>
+      </section>
+
+      <aside class="side" aria-label="模式与排行榜">
+        <div class="panel">
+          <h2>模式</h2>
+          <div class="mode-row" role="group" aria-label="选择模式">
+            <button type="button" id="btnCampaign" class="chip active">无限闯关</button>
+            <button type="button" id="btnDaily" class="chip">每日同种</button>
+          </div>
+          <div class="diff-row" role="group" aria-label="选择难度">
+            <button type="button" id="btnDiffEasy" class="chip">简单</button>
+            <button type="button" id="btnDiffComplex" class="chip active">复杂</button>
+            <button type="button" id="btnDiffHell" class="chip">地狱</button>
+          </div>
+          <p class="muted tight" id="modeDesc">复杂：标准叠板与道具；可切简单或地狱。</p>
+        </div>
+
+        <div class="panel">
+          <h2>操作</h2>
+          <div class="actions">
+            <button type="button" id="btnRestart">重玩本关</button>
+            <button type="button" id="btnTutorial">玩法说明</button>
+            <button type="button" id="btnSubmit" disabled>提交成绩</button>
+            <button type="button" id="btnAutoSubmit" class="chip" aria-pressed="false">自动提交</button>
+          </div>
+        </div>
+
+        <div class="panel board-panel">
+          <div class="board-head">
+            <h2>排行榜</h2>
+            <button type="button" id="btnRefreshBoard" class="linkish">刷新</button>
+          </div>
+          <p id="boardMeta" class="muted">按总分排行</p>
+          <ol id="boardList" class="board-list"></ol>
+          <p id="boardMine" class="muted"></p>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script defer src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
+  <script defer src="app.js?v=1.0.0"></script>
+</body>
+</html>

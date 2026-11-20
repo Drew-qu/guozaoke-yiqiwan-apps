@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>萝卜守卫战</title>
-  <link rel="stylesheet" href="style.css?v=1.0.4">
+  <link rel="stylesheet" href="style.css?v=1.1.0">
 </head>
 <body>
   <div class="app" id="app">
@@ -28,15 +28,14 @@
         <div class="canvas-wrap" id="canvasWrap">
           <canvas id="board" width="672" height="448" role="img" aria-label="塔防地图：点击空位建塔，点击障碍物集火清理"></canvas>
 
-          <!-- 建塔 / 升级悬浮菜单 -->
           <div id="tileMenu" class="tile-menu hidden" role="dialog" aria-label="炮塔操作"></div>
 
-          <!-- 结算遮罩 -->
           <div id="endOverlay" class="overlay hidden" role="dialog" aria-modal="true">
             <div class="modal-card">
               <p id="endKicker" class="modal-kicker">守卫成功</p>
               <h2 id="endTitle">🏆 金萝卜达成！</h2>
               <p id="endSummary" class="end-summary"></p>
+              <div id="endStats" class="end-stats" aria-label="本局战斗统计"></div>
               <div class="end-actions">
                 <button type="button" id="btnEndSubmit" class="primary">提交成绩</button>
                 <button type="button" id="btnEndNext" class="accent hidden">下一关</button>
@@ -47,7 +46,7 @@
         </div>
 
         <div class="stage-bar">
-          <p id="hint" class="hint" role="status">点空位造炮塔，点树木/宝箱可集火清理赚金币！</p>
+          <p id="hint" class="hint" role="status">新手推荐：先打「青草弯道」。点空位造塔，相邻同级可合成。</p>
           <div class="stage-tools">
             <button type="button" id="btnNextWave" class="mini-btn accent-mini">▶ 出怪</button>
             <button type="button" id="btnSpeed" class="mini-btn">⏩ 1x</button>
@@ -58,26 +57,41 @@
 
       <aside class="side" aria-label="地图与排行榜">
         <div class="panel">
-          <h2>地图 / 模式</h2>
-          <div class="mode-grid" role="group" aria-label="选择地图或模式">
-            <button type="button" id="btnMap0" class="chip active">1. 青草弯道</button>
-            <button type="button" id="btnMap1" class="chip">2. 蘑菇回廊</button>
-            <button type="button" id="btnMap2" class="chip">3. 蛇形长廊</button>
-            <button type="button" id="btnEndless" class="chip">∞ 无尽冲榜</button>
-            <button type="button" id="btnDaily" class="chip full-span">📅 每日同种挑战</button>
+          <h2>冒险闯关</h2>
+          <p class="mode-group-label">固定波数 · 长期榜 · 通关拿徽章</p>
+          <div class="mode-grid" role="group" aria-label="闯关地图">
+            <button type="button" id="btnMap0" class="chip active">
+              <span class="chip-main">1. 青草弯道</span>
+              <span class="chip-sub">简单 · 10波 · 新手推荐</span>
+            </button>
+            <button type="button" id="btnMap1" class="chip">
+              <span class="chip-main">2. 蘑菇回廊</span>
+              <span class="chip-sub">中等 · 12波</span>
+            </button>
+            <button type="button" id="btnMap2" class="chip">
+              <span class="chip-main">3. 蛇形长廊</span>
+              <span class="chip-sub">困难 · 15波</span>
+            </button>
           </div>
-          <p class="muted tight" id="mapRecord">金萝卜记录：—</p>
+          <h2 class="panel-subh">挑战冲榜</h2>
+          <p class="mode-group-label">比谁守得更远</p>
+          <div class="mode-grid mode-grid-rank" role="group" aria-label="冲榜模式">
+            <button type="button" id="btnEndless" class="chip">
+              <span class="chip-main">∞ 无尽生存</span>
+              <span class="chip-sub">长期榜 · 无限波</span>
+            </button>
+            <button type="button" id="btnDaily" class="chip">
+              <span class="chip-main">📅 每日挑战</span>
+              <span class="chip-sub">全服同图 · 日榜</span>
+            </button>
+          </div>
+          <p class="muted tight" id="modeDesc">新手推荐：从青草弯道开始，熟悉造塔与合成。</p>
+          <p class="muted tight" id="mapRecord">通关徽章：—</p>
         </div>
 
         <div class="panel">
           <h2>炮塔图鉴</h2>
-          <div class="legend-grid">
-            <div class="legend-item"><span>🟢 瓶子炮</span><em>100金 · 速射 → 合🌋</em></div>
-            <div class="legend-item"><span>❄️ 冰冻星</span><em>120金 · 减速 → 合🌨️</em></div>
-            <div class="legend-item"><span>☀️ 太阳花</span><em>160金 · 群伤 → 合🔆</em></div>
-            <div class="legend-item"><span>🚀 火箭炮</span><em>200金 · 爆破 → 合💥</em></div>
-            <div class="legend-item"><span>✨ 相邻合成</span><em>同种同级免费合；满级→合成体</em></div>
-          </div>
+          <div class="legend-grid legend-grid-tall" id="towerLegend"></div>
         </div>
 
         <div class="panel">
@@ -92,10 +106,10 @@
 
         <div class="panel board-panel">
           <div class="board-head">
-            <h2>排行榜</h2>
+            <h2 id="boardTitle">排行榜</h2>
             <button type="button" id="btnRefreshBoard" class="linkish">刷新</button>
           </div>
-          <p id="boardMeta" class="muted">关卡按总分；无尽/每日先比波次</p>
+          <p id="boardMeta" class="muted">当前模式排行榜</p>
           <ol id="boardList" class="board-list"></ol>
           <p id="boardMine" class="muted"></p>
         </div>
@@ -103,6 +117,6 @@
     </div>
   </div>
   <script defer src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
-  <script defer src="app.js?v=1.0.4"></script>
+  <script defer src="app.js?v=1.1.0"></script>
 </body>
 </html>
