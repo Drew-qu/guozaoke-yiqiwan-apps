@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>沧澜突围</title>
+  <link rel="stylesheet" href="style.css?v=1.0.0">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="top">
+      <div class="titles">
+        <h1>沧澜突围</h1>
+        <p id="modeSub" class="sub">虚构碧潮航道 · 街机空海</p>
+      </div>
+      <div class="meters" aria-live="polite">
+        <span class="hp-pill" id="hpPill"><i id="hpFill"></i><em id="hpText">生命 100</em></span>
+        <span id="meterScore">得分 0</span>
+        <span id="meterWave">波次 1 / 4</span>
+        <span id="meterStealth">隐身 就绪</span>
+        <button type="button" id="btnSound" class="meter-btn" aria-pressed="true" title="音效开关">🔊 音效</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="stage" aria-label="三维航道">
+        <div class="canvas-wrap" id="view">
+          <canvas id="board" aria-label="折影在碧潮航道上空飞行，空袭与海攻分别瞄准空中和海面"></canvas>
+          <div id="vignette" class="vignette"></div>
+          <div id="banner" class="banner hidden" role="status"></div>
+          <div id="bossHud" class="boss-hud hidden" aria-label="潮垒部件"></div>
+          <div id="stick" class="stick hidden" aria-hidden="true"><i></i></div>
+
+          <div class="touch-dock" id="touchDock">
+            <button type="button" id="btnAir" style="--cool:0">空袭</button>
+            <button type="button" id="btnSea" style="--cool:0">海攻</button>
+            <button type="button" id="btnStealth" style="--cool:0">隐身</button>
+          </div>
+
+          <div id="startOverlay" class="overlay start-overlay" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+            <div class="modal-card">
+              <p class="modal-kicker">虚构航道 · 不是现实模拟</p>
+              <h2 id="startTitle">折影，出航</h2>
+              <p class="modal-copy">驾驶鸭翼双垂尾试验机，穿过三波街机编队，拆掉潮垒航母上的炮位、舰岛、弹射器和核心舱。</p>
+              <ul class="modal-list">
+                <li>移动对准目标。空袭只打飞机，海攻只炸海面。</li>
+                <li>飞得更高，海攻落得更远。金色环就是落点。</li>
+                <li>Shift 或「隐身」放出诱饵，短时间免伤。</li>
+              </ul>
+              <div class="over-actions">
+                <button type="button" id="btnStart" class="primary">开始突围</button>
+                <button type="button" id="btnStartHelp">玩法说明</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="helpOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+            <div class="modal-card">
+              <p class="modal-kicker">操作</p>
+              <h2 id="helpTitle">怎么飞</h2>
+              <ul class="modal-list">
+                <li>键盘：WASD 或方向键移动，J / 空格空袭，K 海攻，Shift 隐身，P 暂停。</li>
+                <li>触控：按住画面拖动移动，右侧三个按钮开火和隐身。</li>
+                <li>掠影、雷鸦在空中，要用空袭。潮哨和潮垒部件贴着海面，要用海攻。</li>
+                <li>潮垒分三阶段：先左右舷炮，再舰岛与弹射器，最后核心舱。拆掉核心即通关。</li>
+              </ul>
+              <div class="over-actions single">
+                <button type="button" id="btnHelpClose" class="primary">知道了</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="pauseOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+            <div class="modal-card">
+              <p class="modal-kicker">已暂停</p>
+              <h2 id="pauseTitle">航道停住了</h2>
+              <p class="modal-copy">折影悬在碧潮上空。准备好再继续。</p>
+              <div class="over-actions">
+                <button type="button" id="btnResume" class="primary">继续</button>
+                <button type="button" id="btnPauseRestart">重开本局</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="endOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+            <div class="modal-card">
+              <p id="endKicker" class="modal-kicker">结算</p>
+              <h2 id="endTitle">本局结束</h2>
+              <p id="endSummary" class="modal-copy"></p>
+              <div class="over-actions">
+                <button type="button" id="btnEndSubmit" class="primary">提交成绩</button>
+                <button type="button" id="btnEndRestart">再来一次</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="testPanel" class="test-panel hidden">
+            <button type="button" id="btnTestTargets">生成靶标</button>
+            <button type="button" id="btnTestBoss">进入航母</button>
+            <button type="button" id="btnTestPhase">击破本阶段</button>
+          </div>
+        </div>
+
+        <div class="stage-bar">
+          <p id="hint" class="hint" role="status">WASD 移动，J 空袭，K 海攻，Shift 隐身</p>
+          <div class="stage-tools">
+            <button type="button" id="btnPause" class="mini-btn">暂停</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="图鉴与排行">
+        <div class="panel">
+          <h2>航道图鉴</h2>
+          <div class="legend-grid">
+            <div class="legend-item"><span>折影</span><em>鸭翼双垂尾，你的试验机</em></div>
+            <div class="legend-item"><span>掠影</span><em>单垂尾迅捷机 · 空袭</em></div>
+            <div class="legend-item"><span>雷鸦</span><em>重型编队 · 空袭</em></div>
+            <div class="legend-item"><span>潮哨</span><em>海面护航舰 · 海攻</em></div>
+            <div class="legend-item"><span>潮垒</span><em>炮位 → 舰岛/弹射器 → 核心舱</em></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>操作</h2>
+          <div class="actions">
+            <button type="button" id="btnRestart">重开本局</button>
+            <button type="button" id="btnTutorial">玩法说明</button>
+            <button type="button" id="btnSubmit" disabled>提交成绩</button>
+            <button type="button" id="btnAutoSubmit" class="chip" aria-pressed="false">自动提交</button>
+          </div>
+          <p class="muted tight" id="bestLine">本地最佳 —</p>
+        </div>
+
+        <div class="panel board-panel">
+          <div class="board-head">
+            <h2>排行榜</h2>
+            <button type="button" id="btnRefreshBoard" class="linkish">刷新</button>
+          </div>
+          <p id="boardMeta" class="muted">单航道 · 得分越高越好</p>
+          <ol id="boardList" class="board-list"></ol>
+          <p id="boardMine" class="muted"></p>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
+  <script type="module" src="app.js?v=1.0.0"></script>
+</body>
+</html>
