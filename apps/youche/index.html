@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>买车养车账本</title>
+  <link rel="stylesheet" href="style.css?v=1.0.0">
+</head>
+<body>
+  <div class="app" id="app" data-panel="results">
+    <header class="masthead">
+      <div class="brand">
+        <h1>买车养车账本</h1>
+        <p class="sub">燃油 / 混动 / 插混 / 增程 / 纯电 · 算清持有期差多少钱</p>
+      </div>
+      <div class="mast-actions desk-only">
+        <button type="button" id="btnCopy" class="btn btn-primary">复制摘要</button>
+        <button type="button" id="btnSavePlan" class="btn">存方案</button>
+        <button type="button" id="btnTutorial" class="btn">说明</button>
+      </div>
+    </header>
+
+    <nav class="panel-tabs phone-only" role="tablist" aria-label="页面切换">
+      <button type="button" class="panel-tab" role="tab" id="tabResults" aria-controls="panelResults" aria-selected="true">结论</button>
+      <button type="button" class="panel-tab" role="tab" id="tabParams" aria-controls="panelParams" aria-selected="false">调参</button>
+    </nav>
+
+    <div class="workspace">
+      <main class="panel panel-results" id="panelResults" role="tabpanel" aria-labelledby="tabResults">
+        <section class="verdict" aria-live="polite">
+          <p class="verdict-kicker" id="verdictKicker">持有对比</p>
+          <h2 class="verdict-title" id="verdictTitle">—</h2>
+          <p class="verdict-sub" id="verdictSub">—</p>
+        </section>
+
+        <section class="stat-row" id="statRow">
+          <div class="stat">
+            <span class="stat-label" id="statSaveLabel">持有期差额</span>
+            <strong class="stat-val" id="statSave">—</strong>
+          </div>
+          <div class="stat" id="statCarAWrap">
+            <span class="stat-label" id="statCarALabel">车 A 净成本</span>
+            <strong class="stat-val" id="statCarA">—</strong>
+          </div>
+          <div class="stat" id="statCarBWrap">
+            <span class="stat-label" id="statCarBLabel">车 B 净成本</span>
+            <strong class="stat-val" id="statCarB">—</strong>
+          </div>
+        </section>
+
+        <section class="chart-section">
+          <div class="chart-head">
+            <h3>累计支出走势</h3>
+            <div class="legend" id="chartLegend" aria-hidden="true"></div>
+          </div>
+          <div class="canvas-box">
+            <canvas id="chartCurve" width="720" height="280"></canvas>
+          </div>
+        </section>
+
+        <details class="more-block">
+          <summary>费用结构与逐年明细</summary>
+          <div class="more-body">
+            <div class="bars-box" id="breakdownBars"></div>
+            <div class="table-wrap" id="tableWrap" tabindex="0" role="region" aria-label="逐年明细">
+              <table class="ledger-table">
+                <thead id="ledgerHead"></thead>
+                <tbody id="ledgerBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+
+        <p class="disclaimer" role="note">测算仅供参考。纯电行驶占比决定多少路用电，家充占比决定这些电多少钱——二者不是一回事。未计入税费优惠、限行与真实残值波动。</p>
+      </main>
+
+      <aside class="panel panel-params" id="panelParams" role="tabpanel" aria-labelledby="tabParams">
+        <div class="params-core">
+          <div class="field-row">
+            <h3>用车假设</h3>
+            <button type="button" id="btnTutorialMobile" class="text-btn phone-only">说明</button>
+          </div>
+
+          <label class="field" for="inYears">
+            <span>持有年限：<strong id="yearsLabel">8 年</strong></span>
+            <input type="range" id="inYears" min="3" max="15" step="1" value="8">
+          </label>
+          <div class="chips" data-target="inYears">
+            <button type="button" data-val="5">5年</button>
+            <button type="button" data-val="8">8年</button>
+            <button type="button" data-val="10">10年</button>
+          </div>
+
+          <label class="field" for="inAnnualKm">
+            <span>年行驶：<strong id="kmLabel">1.5 万 km</strong></span>
+            <input type="range" id="inAnnualKm" min="3000" max="60000" step="1000" value="15000">
+          </label>
+          <div class="chips" data-target="inAnnualKm">
+            <button type="button" data-val="10000">1万</button>
+            <button type="button" data-val="15000">1.5万</button>
+            <button type="button" data-val="20000">2万</button>
+          </div>
+
+          <h3 class="field-title">能源价（公共）</h3>
+          <div class="two-col">
+            <label class="field" for="inFuelPrice">
+              <span>油价 元/升</span>
+              <input type="number" id="inFuelPrice" inputmode="decimal" min="3" max="20" step="0.1" value="7.8" enterkeyhint="next">
+            </label>
+            <label class="field" for="inHomeRate">
+              <span>家充 元/度</span>
+              <input type="number" id="inHomeRate" inputmode="decimal" min="0.1" max="5" step="0.05" value="0.58" enterkeyhint="next">
+            </label>
+          </div>
+          <div class="two-col">
+            <label class="field" for="inPublicRate">
+              <span>外充 元/度</span>
+              <input type="number" id="inPublicRate" inputmode="decimal" min="0.2" max="5" step="0.05" value="1.35" enterkeyhint="next">
+            </label>
+            <label class="field" for="inHomeShare">
+              <span>家充占比 <strong id="homeShareLabel">70%</strong></span>
+              <input type="range" id="inHomeShare" min="0" max="100" step="5" value="70">
+            </label>
+          </div>
+          <p class="hint" id="blendRateHint">综合电价约 ¥0.81 / 度 · 只影响「用电」那部分里程</p>
+
+          <div class="field-row cars-head">
+            <h3>对比车辆</h3>
+            <button type="button" id="btnAddCar" class="text-btn">+ 第三辆</button>
+          </div>
+          <div id="carCards" class="car-cards"></div>
+
+          <div class="compare-pick" id="comparePick" hidden>
+            <label class="field" for="inCompareA">
+              <span>回本比较 · 车甲</span>
+              <select id="inCompareA"></select>
+            </label>
+            <label class="field" for="inCompareB">
+              <span>回本比较 · 车乙</span>
+              <select id="inCompareB"></select>
+            </label>
+          </div>
+        </div>
+
+        <details class="advanced">
+          <summary>
+            <span>已存方案</span>
+            <button type="button" id="btnClearPlans" class="text-btn">清空</button>
+          </summary>
+          <div class="advanced-body">
+            <ul id="planList" class="plan-list"></ul>
+          </div>
+        </details>
+
+        <div class="phone-only params-footer">
+          <button type="button" id="btnSavePlanMobile" class="btn grow">存方案</button>
+          <button type="button" id="btnGoResults" class="btn btn-primary grow">看结论</button>
+        </div>
+      </aside>
+    </div>
+
+    <div class="dock phone-only" aria-label="快捷操作">
+      <div class="dock-metric">
+        <span>结论</span>
+        <strong id="dockPayback">—</strong>
+      </div>
+      <button type="button" id="dockToggle" class="btn">调参</button>
+      <button type="button" id="btnCopyDock" class="btn btn-primary">复制</button>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status"></div>
+  </div>
+  <script defer src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
+  <script defer src="app.js?v=1.0.0"></script>
+</body>
+</html>

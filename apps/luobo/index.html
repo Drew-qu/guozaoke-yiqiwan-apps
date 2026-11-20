@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>萝卜守卫战</title>
+  <link rel="stylesheet" href="style.css?v=1.0.4">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="top">
+      <div class="titles">
+        <h1>🥕 萝卜守卫战</h1>
+        <p id="modeSub" class="sub">青草弯道 · 10 波守卫</p>
+      </div>
+      <div class="meters" aria-live="polite">
+        <span id="meterGold" class="gold-pill">💰 450</span>
+        <span id="meterWave">波次 1 / 10</span>
+        <span id="meterHp" class="hp-pill">🥕 10</span>
+        <span id="meterScore">得分 0</span>
+        <button type="button" id="btnSound" class="meter-btn" aria-pressed="true" title="音效开关">🔊</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="stage" aria-label="塔防战场">
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="board" width="672" height="448" role="img" aria-label="塔防地图：点击空位建塔，点击障碍物集火清理"></canvas>
+
+          <!-- 建塔 / 升级悬浮菜单 -->
+          <div id="tileMenu" class="tile-menu hidden" role="dialog" aria-label="炮塔操作"></div>
+
+          <!-- 结算遮罩 -->
+          <div id="endOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+            <div class="modal-card">
+              <p id="endKicker" class="modal-kicker">守卫成功</p>
+              <h2 id="endTitle">🏆 金萝卜达成！</h2>
+              <p id="endSummary" class="end-summary"></p>
+              <div class="end-actions">
+                <button type="button" id="btnEndSubmit" class="primary">提交成绩</button>
+                <button type="button" id="btnEndNext" class="accent hidden">下一关</button>
+                <button type="button" id="btnEndRestart">再来一局</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-bar">
+          <p id="hint" class="hint" role="status">点空位造炮塔，点树木/宝箱可集火清理赚金币！</p>
+          <div class="stage-tools">
+            <button type="button" id="btnNextWave" class="mini-btn accent-mini">▶ 出怪</button>
+            <button type="button" id="btnSpeed" class="mini-btn">⏩ 1x</button>
+            <button type="button" id="btnPause" class="mini-btn">⏸ 暂停</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="地图与排行榜">
+        <div class="panel">
+          <h2>地图 / 模式</h2>
+          <div class="mode-grid" role="group" aria-label="选择地图或模式">
+            <button type="button" id="btnMap0" class="chip active">1. 青草弯道</button>
+            <button type="button" id="btnMap1" class="chip">2. 蘑菇回廊</button>
+            <button type="button" id="btnMap2" class="chip">3. 蛇形长廊</button>
+            <button type="button" id="btnEndless" class="chip">∞ 无尽冲榜</button>
+            <button type="button" id="btnDaily" class="chip full-span">📅 每日同种挑战</button>
+          </div>
+          <p class="muted tight" id="mapRecord">金萝卜记录：—</p>
+        </div>
+
+        <div class="panel">
+          <h2>炮塔图鉴</h2>
+          <div class="legend-grid">
+            <div class="legend-item"><span>🟢 瓶子炮</span><em>100金 · 速射 → 合🌋</em></div>
+            <div class="legend-item"><span>❄️ 冰冻星</span><em>120金 · 减速 → 合🌨️</em></div>
+            <div class="legend-item"><span>☀️ 太阳花</span><em>160金 · 群伤 → 合🔆</em></div>
+            <div class="legend-item"><span>🚀 火箭炮</span><em>200金 · 爆破 → 合💥</em></div>
+            <div class="legend-item"><span>✨ 相邻合成</span><em>同种同级免费合；满级→合成体</em></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>操作</h2>
+          <div class="actions">
+            <button type="button" id="btnRestart">重开本局</button>
+            <button type="button" id="btnTutorial">玩法说明</button>
+            <button type="button" id="btnSubmit" disabled>提交成绩</button>
+            <button type="button" id="btnAutoSubmit" class="chip" aria-pressed="false">自动提交</button>
+          </div>
+        </div>
+
+        <div class="panel board-panel">
+          <div class="board-head">
+            <h2>排行榜</h2>
+            <button type="button" id="btnRefreshBoard" class="linkish">刷新</button>
+          </div>
+          <p id="boardMeta" class="muted">关卡按总分；无尽/每日先比波次</p>
+          <ol id="boardList" class="board-list"></ol>
+          <p id="boardMine" class="muted"></p>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script defer src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
+  <script defer src="app.js?v=1.0.4"></script>
+</body>
+</html>

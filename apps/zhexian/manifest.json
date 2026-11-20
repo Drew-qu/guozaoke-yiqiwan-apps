@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "name": "折线",
+  "version": "3.0.0",
+  "entry": "index.html",
+  "description": "三种玩法：障碍折线、欧拉描边、正交填格。拖拽连线、三星、音效、每日三题。",
+  "category": "games",
+  "tags": ["益智", "一笔画", "填格", "欧拉"],
+  "mobile": true,
+  "sound": true,
+  "permissions": ["storage.local", "scores.public", "audio"],
+  "tutorial": [
+    {
+      "title": "折线",
+      "content": "自由连点，禁止交叉。红墙不可穿；有的关固定 S/E。难在房间顺序与窄口。"
+    },
+    {
+      "title": "描边",
+      "content": "沿灰色轨道走完每一条边（点可重复）。奇点作起终点，走错会困死。"
+    },
+    {
+      "title": "填格",
+      "content": "网格里只能上下左右相邻，一笔填满所有空格。障碍格不能踩。"
+    }
+  ],
+  "changelog": "3.0.0：三玩法（折线/描边/填格）分榜；含双室门禁等拓扑关；2.5：剪影显形"
+}

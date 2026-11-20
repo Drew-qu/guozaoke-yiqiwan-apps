@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>弹珠破阵</title>
+  <link rel="stylesheet" href="style.css?v=1.0.2">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="top">
+      <div class="titles">
+        <h1>弹珠破阵</h1>
+        <p id="modeSub" class="sub">经典无尽 · 肉鸽弹球</p>
+      </div>
+      <div class="meters" aria-live="polite">
+        <span id="meterWave">第 1 关</span>
+        <span id="meterScore">得分 0</span>
+        <span id="meterBalls">弹珠 1</span>
+        <button type="button" id="btnSound" class="meter-btn" aria-pressed="true" title="音效开关">🔊 音效</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="stage" aria-label="弹球盘面">
+        <div class="canvas-wrap">
+          <canvas id="board" width="420" height="600" role="img" aria-label="拖动瞄准发射弹珠击碎数字砖块"></canvas>
+
+          <!-- 肉鸽三选一遮罩 -->
+          <div id="perkOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="perkTitle">
+            <div class="modal-card">
+              <p class="modal-kicker">第 <span id="perkWaveNum">5</span> 回合达成</p>
+              <h2 id="perkTitle">选择一项强化</h2>
+              <div id="perkList" class="perk-list"></div>
+            </div>
+          </div>
+
+          <!-- 游戏结束遮罩 -->
+          <div id="overOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="overTitle">
+            <div class="modal-card over-card">
+              <p class="modal-kicker">防线突破</p>
+              <h2 id="overTitle">本局结算</h2>
+              <p id="overSummary" class="over-summary"></p>
+              <div class="over-actions">
+                <button type="button" id="btnOverSubmit" class="primary">提交成绩</button>
+                <button type="button" id="btnOverRestart">再来一局</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-bar">
+          <p id="hint" class="hint" role="status">在盘面按住拖动瞄准，松手发射</p>
+          <div class="stage-tools">
+            <button type="button" id="btnSpeed" class="mini-btn hidden">⏩ 2x 加速</button>
+            <button type="button" id="btnRecall" class="mini-btn hidden">⏬ 收球</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="控制与排行榜">
+        <div class="panel">
+          <h2>模式</h2>
+          <div class="mode-row" role="group" aria-label="模式选择">
+            <button type="button" id="btnClassic" class="chip active">经典无尽</button>
+            <button type="button" id="btnDaily" class="chip">每日同种</button>
+          </div>
+          <p class="muted tight" id="modeDesc">自由冲分，每 5 回合三选一强化。</p>
+        </div>
+
+        <div class="panel">
+          <h2>已获强化</h2>
+          <div id="buildTags" class="build-tags">
+            <span class="empty-tag">第 5 回合解锁首项强化</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>操作</h2>
+          <div class="actions">
+            <button type="button" id="btnRestart">重开本局</button>
+            <button type="button" id="btnTutorial">玩法说明</button>
+            <button type="button" id="btnSubmit" disabled>提交成绩</button>
+            <button type="button" id="btnAutoSubmit" class="chip" aria-pressed="false">自动提交</button>
+          </div>
+        </div>
+
+        <div class="panel board-panel">
+          <div class="board-head">
+            <h2>排行榜</h2>
+            <button type="button" id="btnRefreshBoard" class="linkish">刷新</button>
+          </div>
+          <p id="boardMeta" class="muted">总分越高越好</p>
+          <ol id="boardList" class="board-list"></ol>
+          <p id="boardMine" class="muted"></p>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script defer src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
+  <script defer src="app.js?v=1.0.2"></script>
+</body>
+</html>

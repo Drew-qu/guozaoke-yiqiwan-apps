@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>折线</title>
+  <link rel="stylesheet" href="style.css?v=3.0.0">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="top">
+      <div class="titles">
+        <h1>折线</h1>
+        <p id="levelName" class="sub">准备中…</p>
+      </div>
+      <div class="meters" aria-live="polite">
+        <span id="meterCover">0/0</span>
+        <span id="meterStars" title="通关评星">☆☆☆</span>
+        <span id="meterUndo">撤销 0</span>
+        <span id="meterTime">0:00</span>
+        <span id="meterDiff">折线·一般</span>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="stage" aria-label="折线盘面">
+        <canvas id="board" width="640" height="640" role="img" aria-label="三种玩法：折线、描边、填格"></canvas>
+        <p id="hint" class="hint" role="status">点选圆点开始</p>
+      </section>
+
+      <aside class="side" aria-label="进度与排行榜">
+        <div class="panel">
+          <h2>玩法</h2>
+          <div class="mode-row" role="group" aria-label="玩法">
+            <button type="button" id="btnRuleFree" class="chip active">折线</button>
+            <button type="button" id="btnRuleEuler" class="chip">描边</button>
+            <button type="button" id="btnRuleGrid" class="chip">填格</button>
+          </div>
+          <div class="mode-row" role="group" aria-label="模式">
+            <button type="button" id="btnCampaign" class="chip active">生涯</button>
+            <button type="button" id="btnDaily" class="chip">每日</button>
+          </div>
+          <div class="mode-row" role="group" aria-label="难度">
+            <button type="button" id="btnDiffEasy" class="chip" data-diff="easy">简单</button>
+            <button type="button" id="btnDiffNormal" class="chip active" data-diff="normal">一般</button>
+            <button type="button" id="btnDiffHard" class="chip" data-diff="hard">困难</button>
+          </div>
+          <div class="level-nav">
+            <button type="button" id="btnPrev" aria-label="上一关">上一关</button>
+            <span id="levelIndex">1 / 64</span>
+            <button type="button" id="btnNext" aria-label="下一关">下一关</button>
+          </div>
+          <p class="muted tight" id="levelPoolHint">三玩法分榜；每日各 3 题。</p>
+        </div>
+
+        <div class="panel">
+          <h2>自动</h2>
+          <div class="mode-row" role="group" aria-label="自动选项">
+            <button type="button" id="btnAutoNext" class="chip" aria-pressed="false">自动下一关</button>
+            <button type="button" id="btnAutoSubmit" class="chip" aria-pressed="false">自动提交</button>
+          </div>
+          <p class="muted tight">通关后自动提交（需登录）并跳下一关。</p>
+        </div>
+
+        <div class="panel">
+          <h2>操作</h2>
+          <div class="actions">
+            <button type="button" id="btnUndo">撤销一步</button>
+            <button type="button" id="btnClear">重来</button>
+            <button type="button" id="btnSubmit" disabled>提交成绩</button>
+            <button type="button" id="btnTutorial">教程</button>
+          </div>
+        </div>
+
+        <div class="panel board-panel">
+          <div class="board-head">
+            <h2>排行榜</h2>
+            <button type="button" id="btnRefreshBoard" class="linkish">刷新</button>
+          </div>
+          <p id="boardMeta" class="muted">用时越短越好；撤销少者优先</p>
+          <ol id="boardList" class="board-list"></ol>
+          <p id="boardMine" class="muted"></p>
+        </div>
+      </aside>
+    </div>
+
+    <div id="winBanner" class="win hidden" role="status">
+      <strong id="winStars">★★★</strong>
+      <span id="winDetail"></span>
+      <button type="button" id="btnWinNext" class="win-next">下一关</button>
+    </div>
+  </div>
+  <script src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
+  <script src="app.js?v=3.0.0"></script>
+</body>
+</html>

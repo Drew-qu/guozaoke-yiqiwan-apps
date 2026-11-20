@@ -1,0 +1,8 @@
+.DS_Store
+*.zip
+**/_preview/
+**/node_modules/
+.env
+.env.*
+credentials.json
+*.log

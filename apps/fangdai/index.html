@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>房贷精算师</title>
+  <link rel="stylesheet" href="style.css?v=1.0.2">
+</head>
+<body>
+  <div class="app" id="app" data-panel="params">
+    <header class="masthead">
+      <div class="brand">
+        <p class="brand-kicker">本地离线测算</p>
+        <h1>房贷精算师</h1>
+        <p id="subTitle" class="sub">商贷 / 公积金 / 组合贷 · 提前还贷省息对比</p>
+      </div>
+      <div class="mast-actions desk-only">
+        <button type="button" id="btnCopy" class="btn btn-ink">复制摘要</button>
+        <button type="button" id="btnSavePlan" class="btn btn-ghost">存为方案</button>
+        <button type="button" id="btnTutorial" class="btn btn-ghost">说明</button>
+      </div>
+    </header>
+
+    <p class="disclaimer" role="note">测算仅供参考，实际月供、利率与提前还贷规则以贷款合同及银行还款计划为准。</p>
+
+    <nav class="panel-tabs phone-only" role="tablist" aria-label="页面切换">
+      <button type="button" class="panel-tab" role="tab" id="tabParams" aria-controls="panelParams" aria-selected="true">参数</button>
+      <button type="button" class="panel-tab" role="tab" id="tabResults" aria-controls="panelResults" aria-selected="false">结果</button>
+    </nav>
+
+    <div class="workspace">
+      <aside class="panel panel-params" id="panelParams" role="tabpanel" aria-labelledby="tabParams">
+        <section class="block">
+          <header class="block-head">
+            <h2>贷款参数</h2>
+            <button type="button" id="btnTutorialMobile" class="text-btn phone-only">说明</button>
+          </header>
+
+          <div class="seg" role="group" aria-label="贷款类型">
+            <button type="button" class="seg-btn active" data-loan="commercial">商贷</button>
+            <button type="button" class="seg-btn" data-loan="fund">公积金</button>
+            <button type="button" class="seg-btn" data-loan="combo">组合贷</button>
+          </div>
+
+          <div class="seg mt" role="group" aria-label="还款方式">
+            <button type="button" class="seg-btn active" data-method="equal_installment">等额本息</button>
+            <button type="button" class="seg-btn" data-method="equal_principal">等额本金</button>
+          </div>
+
+          <div id="blockCommercial" class="fields">
+            <label class="field" for="inCommAmt">
+              <span>商业贷款金额（万元）</span>
+              <input type="number" id="inCommAmt" inputmode="decimal" min="1" max="5000" step="1" value="100" enterkeyhint="next">
+            </label>
+            <label class="field" for="inCommRate">
+              <span>商贷年利率（%）</span>
+              <input type="number" id="inCommRate" inputmode="decimal" min="0.1" max="15" step="0.05" value="3.10" enterkeyhint="next">
+            </label>
+            <div class="chips" data-target="inCommRate">
+              <button type="button" data-val="3.00">3.0%</button>
+              <button type="button" data-val="3.10">3.1%</button>
+              <button type="button" data-val="3.30">3.3%</button>
+              <button type="button" data-val="3.85">3.85%</button>
+            </div>
+          </div>
+
+          <div id="blockFund" class="fields hidden">
+            <label class="field" for="inFundAmt">
+              <span>公积金贷款金额（万元）</span>
+              <input type="number" id="inFundAmt" inputmode="decimal" min="1" max="3000" step="1" value="60" enterkeyhint="next">
+            </label>
+            <label class="field" for="inFundRate">
+              <span>公积金年利率（%）</span>
+              <input type="number" id="inFundRate" inputmode="decimal" min="0.1" max="10" step="0.05" value="2.60" enterkeyhint="next">
+            </label>
+            <div class="chips" data-target="inFundRate">
+              <button type="button" data-val="2.60">首套 2.6%</button>
+              <button type="button" data-val="2.85">2.85%</button>
+              <button type="button" data-val="3.075">二套 3.075%</button>
+            </div>
+          </div>
+
+          <div class="fields">
+            <label class="field" for="inYears">
+              <span>贷款年限：<strong id="yearsLabel">30 年（360 期）</strong></span>
+              <input type="range" id="inYears" min="5" max="30" step="1" value="30">
+            </label>
+            <div class="chips" data-target="inYears">
+              <button type="button" data-val="10">10年</button>
+              <button type="button" data-val="15">15年</button>
+              <button type="button" data-val="20">20年</button>
+              <button type="button" data-val="25">25年</button>
+              <button type="button" data-val="30">30年</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="block">
+          <header class="block-head">
+            <h2>提前还贷</h2>
+            <label class="toggle" for="chkPrepay">
+              <input type="checkbox" id="chkPrepay" switch checked>
+              <span class="toggle-ui" aria-hidden="true"></span>
+              <span class="toggle-text">启用</span>
+            </label>
+          </header>
+
+          <div id="prepayFields">
+            <label class="field" for="inPaidMonths">
+              <span>已还期数（第几个月提前还）</span>
+              <div class="field-inline">
+                <input type="number" id="inPaidMonths" inputmode="numeric" min="1" max="358" step="1" value="36" enterkeyhint="next">
+                <em id="paidYearsHint">第 3 年</em>
+              </div>
+            </label>
+            <label class="field" for="inPrepayAmt">
+              <span>本次提前还款金额（万元）</span>
+              <input type="number" id="inPrepayAmt" inputmode="decimal" min="1" max="5000" step="1" value="20" enterkeyhint="done">
+            </label>
+            <div id="comboTargetRow" class="field hidden">
+              <span>组合贷优先冲抵</span>
+              <div class="seg" role="group">
+                <button type="button" class="seg-btn active" data-pretarget="commercial">先还商贷</button>
+                <button type="button" class="seg-btn" data-pretarget="fund">先还公积金</button>
+              </div>
+            </div>
+            <p class="hint">开启后自动对比「缩短年限」与「减少月供」两种省息方式。</p>
+          </div>
+        </section>
+
+        <section class="block">
+          <header class="block-head">
+            <h2>已存方案</h2>
+            <button type="button" id="btnClearPlans" class="text-btn">清空</button>
+          </header>
+          <ul id="planList" class="plan-list"></ul>
+        </section>
+
+        <div class="phone-only params-footer">
+          <button type="button" id="btnSavePlanMobile" class="btn btn-ghost grow">存为方案</button>
+          <button type="button" id="btnGoResults" class="btn btn-ink grow">查看结果</button>
+        </div>
+      </aside>
+
+      <main class="panel panel-results" id="panelResults" role="tabpanel" aria-labelledby="tabResults">
+        <section class="hero-metric" aria-live="polite">
+          <span class="hero-label" id="kpiMonthlyLabel">每月月供</span>
+          <strong class="hero-val" id="kpiMonthly">¥0</strong>
+          <em class="hero-sub" id="kpiMonthlySub">—</em>
+        </section>
+
+        <section class="kpi-strip">
+          <div class="kpi">
+            <span class="kpi-label">贷款总额</span>
+            <strong class="kpi-val" id="kpiPrincipal">0 万</strong>
+            <em class="kpi-sub" id="kpiMethodNote">—</em>
+          </div>
+          <div class="kpi kpi-warn">
+            <span class="kpi-label">原计划总利息</span>
+            <strong class="kpi-val" id="kpiInterest">0 万</strong>
+            <em class="kpi-sub" id="kpiInterestRatio">占总还款 0%</em>
+          </div>
+          <div class="kpi">
+            <span class="kpi-label">原计划还款总额</span>
+            <strong class="kpi-val" id="kpiTotal">0 万</strong>
+            <em class="kpi-sub" id="kpiAltCompare">—</em>
+          </div>
+        </section>
+
+        <section id="prepayCompareSection" class="block compare-block">
+          <header class="block-head">
+            <h2>提前还贷方案对比</h2>
+            <span id="prepayStatusBadge" class="stamp">生效中</span>
+          </header>
+          <div class="compare-grid">
+            <article class="scheme" id="schemeShorten">
+              <div class="scheme-top">
+                <h3>方案 A · 缩短年限</h3>
+                <span class="tag" id="badgeRecA">更省息</span>
+              </div>
+              <p class="scheme-save" id="saveInterestA">省息 ¥0</p>
+              <dl class="kv">
+                <div><dt>提前还后月供</dt><dd id="newMonthlyA">—</dd></div>
+                <div><dt>缩短期限</dt><dd id="savedTimeA">—</dd></div>
+                <div><dt>新剩余期数</dt><dd id="newRemainA">—</dd></div>
+                <div><dt>剩余总利息</dt><dd id="newTotalIntA">—</dd></div>
+              </dl>
+              <button type="button" class="btn btn-ghost mini-sel active" data-view="shorten">用此方案看图表明细</button>
+            </article>
+
+            <article class="scheme" id="schemeReduce">
+              <div class="scheme-top">
+                <h3>方案 B · 减少月供</h3>
+                <span class="tag tag-alt" id="badgeRecB">减压稳</span>
+              </div>
+              <p class="scheme-save" id="saveInterestB">省息 ¥0</p>
+              <dl class="kv">
+                <div><dt>提前还后月供</dt><dd id="newMonthlyB">—</dd></div>
+                <div><dt>每月减少</dt><dd id="monthlyDropB">—</dd></div>
+                <div><dt>新剩余期数</dt><dd id="newRemainB">—</dd></div>
+                <div><dt>剩余总利息</dt><dd id="newTotalIntB">—</dd></div>
+              </dl>
+              <button type="button" class="btn btn-ghost mini-sel" data-view="reduce">用此方案看图表明细</button>
+            </article>
+          </div>
+          <p id="prepayTip" class="hint"></p>
+        </section>
+
+        <section class="charts">
+          <div class="block chart-block">
+            <header class="block-head">
+              <h2>本息占比</h2>
+              <span id="donutLabel" class="meta">当前视图</span>
+            </header>
+            <div class="canvas-box">
+              <canvas id="chartDonut" width="320" height="220"></canvas>
+            </div>
+          </div>
+          <div class="block chart-block">
+            <header class="block-head">
+              <h2>逐年走势</h2>
+              <div class="legend" aria-hidden="true">
+                <i class="swatch s-prin"></i>本金
+                <i class="swatch s-int"></i>利息
+                <i class="swatch s-rem"></i>剩余本金
+              </div>
+            </header>
+            <div class="canvas-box">
+              <canvas id="chartTrend" width="480" height="220"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <section class="block table-block">
+          <header class="block-head">
+            <h2 id="scheduleCaption">还款明细</h2>
+            <div class="seg compact" role="group" aria-label="明细粒度">
+              <button type="button" id="btnViewYear" class="seg-btn active">按年</button>
+              <button type="button" id="btnViewMonth" class="seg-btn">按月</button>
+            </div>
+          </header>
+          <div class="table-wrap" id="tableWrap" tabindex="0" role="region" aria-labelledby="scheduleCaption">
+            <table class="schedule-table">
+              <thead>
+                <tr>
+                  <th id="thPeriod" scope="col">年份</th>
+                  <th scope="col">当期还款</th>
+                  <th scope="col">偿还本金</th>
+                  <th scope="col">偿还利息</th>
+                  <th scope="col">剩余本金</th>
+                </tr>
+              </thead>
+              <tbody id="scheduleBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="dock phone-only" aria-label="快捷操作">
+      <div class="dock-metric">
+        <span id="dockLabel">月供</span>
+        <strong id="dockMonthly">¥0</strong>
+      </div>
+      <button type="button" id="dockToggle" class="btn btn-ghost">去结果</button>
+      <button type="button" id="btnCopyDock" class="btn btn-ink">复制</button>
+    </div>
+
+    <div id="toast" class="toast hidden" role="status"></div>
+  </div>
+  <script defer src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
+  <script defer src="app.js?v=1.0.2"></script>
+</body>
+</html>
