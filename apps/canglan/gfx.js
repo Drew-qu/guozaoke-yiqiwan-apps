@@ -19,79 +19,348 @@ function phong(color, extra) {
   }, extra || {}));
 }
 
-function chine(w, h, y0) {
-  return [
-    [0, h * 0.55 + y0],
-    [w * 0.58, h * 0.18 + y0],
-    [w, -h * 0.02 + y0],
-    [w * 0.4, -h * 0.4 + y0],
-    [0, -h * 0.5 + y0],
-    [-w * 0.4, -h * 0.4 + y0],
-    [-w, -h * 0.02 + y0],
-    [-w * 0.58, h * 0.18 + y0]
-  ];
+function Builder() {
+  this.pos = [];
+  this.col = [];
+  this.idx = [];
 }
 
-function loft(stations) {
-  const n = stations[0].ring.length;
-  const pos = [];
-  stations.forEach((st) => {
-    st.ring.forEach((p) => pos.push(p[0], p[1], st.z));
-  });
-  const nose = stations[0];
-  const tail = stations[stations.length - 1];
-  pos.push(0, nose.ring[0][1] * 0.2, nose.z + 0.08);
-  pos.push(0, 0, tail.z - 0.12);
-  const noseI = (pos.length / 3) - 2;
-  const tailI = noseI + 1;
-  const idx = [];
+Builder.prototype.vertCount = function () { return this.pos.length / 3; };
+
+Builder.prototype.v = function (x, y, z, color) {
+  this.pos.push(x, y, z);
+  this.col.push(color[0], color[1], color[2]);
+  return this.vertCount() - 1;
+};
+
+Builder.prototype.tri = function (a, b, c) {
+  this.idx.push(a, b, c);
+};
+
+Builder.prototype.flip = function (start, end) {
+  const stop = end == null ? this.idx.length : end;
+  for (let i = start; i < stop; i += 3) {
+    const swap = this.idx[i + 1];
+    this.idx[i + 1] = this.idx[i + 2];
+    this.idx[i + 2] = swap;
+  }
+};
+
+Builder.prototype.geometry = function (withColor) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(this.pos.slice(), 3));
+  if (withColor !== false) geo.setAttribute('color', new THREE.Float32BufferAttribute(this.col.slice(), 3));
+  geo.setIndex(this.idx.slice());
+  geo.computeVertexNormals();
+  return geo;
+};
+
+function chineRing(hw, hh, lift, n) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2;
+    let x = Math.sin(ang);
+    let y = Math.cos(ang);
+    x = Math.sign(x) * Math.pow(Math.abs(x), 0.5) * hw;
+    const py = y >= 0 ? 0.7 : 0.4;
+    y = Math.sign(y) * Math.pow(Math.abs(y), py) * hh;
+    if (y < 0) y *= 0.6;
+    pts.push([x, y + lift]);
+  }
+  return pts;
+}
+
+function fuseTone(x, y, z, hw, lift, pal) {
+  if (z > pal.noseZ) return pal.radome;
+  if (Math.abs(x) > hw * 0.84) return pal.chine;
+  if (y < lift - 0.01) return pal.belly;
+  return pal.upper;
+}
+
+function addLoft(b, sections, pal, segs) {
+  const stations = sections.map((s) => ({
+    z: s[3],
+    hw: s[0],
+    lift: s[2],
+    ring: chineRing(s[0], s[1], s[2], segs)
+  }));
+  const n = segs;
+  const rows = stations.map((st) => st.ring.map((p) => (
+    b.v(p[0], p[1], st.z, fuseTone(p[0], p[1], st.z, st.hw, st.lift, pal))
+  )));
   for (let s = 0; s < stations.length - 1; s++) {
     for (let i = 0; i < n; i++) {
       const i2 = (i + 1) % n;
-      const a = s * n + i;
-      const b = s * n + i2;
-      const c = (s + 1) * n + i;
-      const d = (s + 1) * n + i2;
-      idx.push(a, c, b, b, c, d);
+      const a = rows[s][i];
+      const d = rows[s][i2];
+      const c = rows[s + 1][i];
+      const e = rows[s + 1][i2];
+      b.tri(a, d, c);
+      b.tri(d, e, c);
     }
   }
+  const nose = stations[0];
+  const noseI = b.v(0, nose.ring[0][1] * 0.2, nose.z + 0.06, pal.radome);
   for (let i = 0; i < n; i++) {
-    const i2 = (i + 1) % n;
-    idx.push(noseI, i2, i);
-    const base = (stations.length - 1) * n;
-    idx.push(tailI, base + i, base + i2);
+    b.tri(noseI, rows[0][(i + 1) % n], rows[0][i]);
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  return geo;
+  const tail = stations[stations.length - 1];
+  const tailI = b.v(0, tail.lift, tail.z - 0.05, pal.belly);
+  const last = rows[rows.length - 1];
+  for (let i = 0; i < n; i++) b.tri(tailI, last[i], last[(i + 1) % n]);
 }
 
-function poly(points) {
-  const pos = [];
-  const idx = [];
-  points.forEach((p) => pos.push(p.x, p.y, p.z));
-  for (let i = 1; i < points.length - 1; i++) idx.push(0, i, i + 1);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  const ny = geo.attributes.normal.getY(0);
-  if (ny < 0) {
-    for (let i = 0; i < idx.length; i += 3) {
-      const tmp = idx[i + 1];
-      idx[i + 1] = idx[i + 2];
-      idx[i + 2] = tmp;
+function radialScore(geo) {
+  const p = geo.attributes.position;
+  const nr = geo.attributes.normal;
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i);
+    const y = p.getY(i);
+    const rad = Math.hypot(x, y);
+    if (rad < 0.18) continue;
+    sum += (x * nr.getX(i) + y * nr.getY(i)) / rad;
+    count++;
+  }
+  return count ? sum / count : 1;
+}
+
+const CHORD_U = [0, 0.04, 0.11, 0.24, 0.42, 0.62, 0.82, 1];
+const CHORD_T = [0.05, 0.58, 1, 0.92, 0.68, 0.42, 0.2, 0.04];
+const CHORD_C = [0, 0.04, 0.09, 0.07, 0.02, -0.02, -0.05, -0.07];
+
+function addWing(b, stations, col, mirror) {
+  const i0 = b.idx.length;
+  const countS = stations.length;
+  const countC = CHORD_U.length;
+  const ids = [];
+  for (let s = 0; s < countS; s++) {
+    const st = stations[s];
+    const row = [];
+    const tipped = col.tip && Math.abs(st.x) >= col.tipAt;
+    for (let c = 0; c < countC; c++) {
+      const u = CHORD_U[c];
+      const z = st.lead + (st.trail - st.lead) * u;
+      const thick = st.thick * CHORD_T[c];
+      const y = st.y + st.thick * CHORD_C[c];
+      const top = tipped ? col.tip : (u < 0.06 ? col.le : col.upper);
+      const bot = tipped ? col.tip : col.lower;
+      row.push([b.v(st.x, y + thick, z, top), b.v(st.x, y - thick * 0.8, z, bot)]);
     }
-    geo.setIndex(idx);
-    geo.computeVertexNormals();
+    ids.push(row);
   }
-  return geo;
+  for (let s = 0; s < countS - 1; s++) {
+    for (let c = 0; c < countC - 1; c++) {
+      const a = ids[s][c];
+      const d = ids[s + 1][c];
+      const e = ids[s + 1][c + 1];
+      const f = ids[s][c + 1];
+      b.tri(a[0], d[0], e[0]);
+      b.tri(a[0], e[0], f[0]);
+      b.tri(a[1], e[1], d[1]);
+      b.tri(a[1], f[1], e[1]);
+    }
+    const leA = ids[s][0];
+    const leD = ids[s + 1][0];
+    b.tri(leA[1], leD[1], leD[0]);
+    b.tri(leA[1], leD[0], leA[0]);
+    const teA = ids[s][countC - 1];
+    const teD = ids[s + 1][countC - 1];
+    b.tri(teA[0], teD[0], teD[1]);
+    b.tri(teA[0], teD[1], teA[1]);
+  }
+  const tip = ids[countS - 1];
+  const root = ids[0];
+  for (let c = 0; c < countC - 1; c++) {
+    b.tri(tip[c][0], tip[c][1], tip[c + 1][1]);
+    b.tri(tip[c][0], tip[c + 1][1], tip[c + 1][0]);
+    b.tri(root[c][0], root[c + 1][1], root[c][1]);
+    b.tri(root[c][0], root[c + 1][0], root[c + 1][1]);
+  }
+  if (mirror) b.flip(i0);
 }
 
-function mirrorX(points) {
-  return points.map((p) => ({ x: -p.x, y: p.y, z: p.z }));
+function mirrorWing(stations) {
+  return stations.map((st) => ({ x: -st.x, y: st.y, lead: st.lead, trail: st.trail, thick: st.thick }));
+}
+
+function addPair(b, stations, col) {
+  addWing(b, stations, col, false);
+  addWing(b, mirrorWing(stations), col, true);
+}
+
+function stitchRings(b, rows, inward) {
+  const n = rows[0].length;
+  for (let s = 0; s < rows.length - 1; s++) {
+    for (let i = 0; i < n; i++) {
+      const i2 = (i + 1) % n;
+      const a = rows[s][i];
+      const d = rows[s][i2];
+      const c = rows[s + 1][i];
+      const e = rows[s + 1][i2];
+      if (inward) {
+        b.tri(a, c, d);
+        b.tri(d, c, e);
+      } else {
+        b.tri(a, d, c);
+        b.tri(d, e, c);
+      }
+    }
+  }
+}
+
+function addNacelle(b, rings, color, reversed) {
+  const n = 14;
+  const rows = rings.map((ring) => {
+    const ids = [];
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2;
+      const yScale = ring.flat || 0.86;
+      ids.push(b.v(
+        ring.x + Math.sin(ang) * ring.r,
+        ring.y + Math.cos(ang) * ring.r * yScale,
+        ring.z,
+        color
+      ));
+    }
+    return ids;
+  });
+  stitchRings(b, rows, reversed);
+}
+
+function transformFin(b, vStart, cant, ox, oy) {
+  const c = Math.cos(cant);
+  const s = Math.sin(cant);
+  const count = b.vertCount();
+  for (let i = vStart; i < count; i++) {
+    const x = b.pos[i * 3];
+    const y = b.pos[i * 3 + 1];
+    b.pos[i * 3] = ox + y * c + x * s;
+    b.pos[i * 3 + 1] = oy - y * s + x * c;
+  }
+}
+
+function addFins(b, spec, col) {
+  const v0 = b.vertCount();
+  addWing(b, spec.stations, col, false);
+  transformFin(b, v0, spec.cant, spec.ox, spec.oy);
+  const v1 = b.vertCount();
+  const i1 = b.idx.length;
+  addWing(b, spec.stations, col, false);
+  transformFin(b, v1, spec.cant, spec.ox, spec.oy);
+  const count = b.vertCount();
+  for (let i = v1; i < count; i++) b.pos[i * 3] *= -1;
+  b.flip(i1);
+  if (col.tip) {
+    for (let i = v0; i < count; i++) {
+      if (b.pos[i * 3 + 1] > spec.flashY) {
+        b.col[i * 3] = col.tip[0];
+        b.col[i * 3 + 1] = col.tip[1];
+        b.col[i * 3 + 2] = col.tip[2];
+      }
+    }
+  }
+}
+
+function bubbleStations(zNose, zTail, y, rx, ry, count) {
+  const stations = [];
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    const arch = Math.sin(t * Math.PI);
+    stations.push({
+      z: zNose + (zTail - zNose) * t,
+      rx: Math.max(0.025, rx * Math.pow(arch, 0.8)),
+      ry: Math.max(0.02, ry * Math.pow(arch, 0.85)),
+      y
+    });
+  }
+  return stations;
+}
+
+function addCanopy(group, mat, tubMat, stations) {
+  const b = new Builder();
+  const seg = 14;
+  const rows = stations.map((st) => {
+    const row = [];
+    for (let i = 0; i <= seg; i++) {
+      const ang = Math.PI - (i / seg) * Math.PI;
+      row.push(b.v(Math.cos(ang) * st.rx, Math.sin(ang) * st.ry + st.y, st.z, [1, 1, 1]));
+    }
+    return row;
+  });
+  for (let s = 0; s < rows.length - 1; s++) {
+    for (let i = 0; i < seg; i++) {
+      const a = rows[s][i];
+      const d = rows[s][i + 1];
+      const c = rows[s + 1][i];
+      const e = rows[s + 1][i + 1];
+      b.tri(a, d, c);
+      b.tri(d, e, c);
+    }
+  }
+  const glass = new THREE.Mesh(b.geometry(false), mat);
+  group.add(glass);
+  const mid = stations[Math.floor(stations.length / 2)];
+  const len = Math.abs(stations[0].z - stations[stations.length - 1].z);
+  const tub = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), tubMat);
+  tub.scale.set((mid.rx / 0.22) * 0.82, (mid.ry / 0.22) * 0.62, (len * 0.36) / 0.22);
+  tub.position.set(0, mid.y + mid.ry * 0.2, mid.z);
+  group.add(tub);
+  return glass;
+}
+
+function addIntake(group, mats, spec) {
+  const holder = new THREE.Group();
+  holder.position.set(spec.x, spec.y, spec.z);
+  holder.rotation.y = spec.x > 0 ? -0.28 : 0.28;
+  holder.scale.set(1.2, 0.52, 1);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(spec.r, spec.r * 0.2, 8, 20), mats.lip);
+  holder.add(lip);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(spec.r * 0.76, 18), mats.hole);
+  hole.position.z = -0.01;
+  holder.add(hole);
+  const duct = new THREE.Mesh(new THREE.CylinderGeometry(spec.r * 0.62, spec.r * 0.78, 0.42, 14), mats.dark);
+  duct.rotation.x = Math.PI / 2;
+  duct.position.z = -0.22;
+  holder.add(duct);
+  group.add(holder);
+  const bump = new THREE.Mesh(new THREE.SphereGeometry(spec.bump, 18, 12), mats.bump);
+  bump.scale.set(0.48, 0.22, 0.95);
+  bump.position.set(spec.x * 0.78, spec.y + spec.bump * 0.08, spec.z + 0.16);
+  group.add(bump);
+}
+
+function addNozzle(group, mats, x, y, z, r) {
+  const b = new Builder();
+  const n = 16;
+  const white = [1, 1, 1];
+  function ring(z0, radius, star) {
+    const ids = [];
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2;
+      const m = star ? (i % 2 === 0 ? 1.1 : 0.66) : 1;
+      ids.push(b.v(Math.cos(ang) * radius * m, Math.sin(ang) * radius * m, z0, white));
+    }
+    return ids;
+  }
+  stitchRings(b, [ring(0, r, false), ring(-0.22, r * 0.9, false), ring(-0.48, r * 0.98, true)], false);
+  stitchRings(b, [ring(-0.02, r * 0.58, false), ring(-0.46, r * 0.4, false)], true);
+  const throat = b.v(0, 0, -0.44, white);
+  const back = ring(-0.46, r * 0.4, false);
+  for (let i = 0; i < n; i++) b.tri(throat, back[i], back[(i + 1) % n]);
+  const mesh = new THREE.Mesh(b.geometry(false), mats.metal);
+  mesh.position.set(x, y, z);
+  group.add(mesh);
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(r * 0.48, r * 3.1, 10), mats.flame);
+  flame.position.set(x, y, z - 0.85);
+  flame.rotation.x = -Math.PI / 2;
+  group.add(flame);
+  const glow = new THREE.Mesh(new THREE.ConeGeometry(r * 0.85, r * 4.4, 8), mats.glow);
+  glow.position.set(x, y, z - 0.95);
+  glow.rotation.x = -Math.PI / 2;
+  group.add(glow);
+  return [flame, glow];
 }
 
 function addMesh(group, geo, mat, x, y, z) {
@@ -102,126 +371,242 @@ function addMesh(group, geo, mat, x, y, z) {
   return mesh;
 }
 
-function buildAircraft(kind) {
+const AIR = {
+  j20: {
+    upper: [0.16, 0.20, 0.28],
+    belly: [0.30, 0.36, 0.46],
+    chine: [0.48, 0.60, 0.68],
+    radome: [0.11, 0.14, 0.18],
+    noseZ: 3.95,
+    canard: [0.13, 0.42, 0.46],
+    le: [0.62, 0.78, 0.84],
+    tail: [0.13, 0.16, 0.22],
+    upperHex: 0x2a3448,
+    canopy: 0xe7a85a,
+    canopyEmit: 0x3a2812,
+    flame: 0x8ef7ff,
+    glow: 0xc8fbff,
+    light: 0x39e7ff
+  },
+  f35: {
+    upper: [0.70, 0.75, 0.80],
+    belly: [0.86, 0.89, 0.92],
+    chine: [0.52, 0.57, 0.62],
+    radome: [0.42, 0.46, 0.50],
+    noseZ: 2.85,
+    canard: [0.70, 0.75, 0.80],
+    le: [0.32, 0.36, 0.40],
+    tail: [0.58, 0.63, 0.68],
+    tip: [0.82, 0.32, 0.16],
+    upperHex: 0xb7c0c8,
+    canopy: 0x9fd4ee,
+    canopyEmit: 0x163040,
+    flame: 0xffb15a,
+    glow: 0xffd2a4,
+    light: 0xff7a3c
+  }
+};
+
+export function buildAircraft(kind) {
   const group = new THREE.Group();
   const j20 = kind === 'j20';
-  const body = phong(j20 ? 0x2a3548 : 0xb7c3d1, {
+  const pal = j20 ? AIR.j20 : AIR.f35;
+  const skinMat = phong(0xffffff, {
+    vertexColors: true,
     transparent: true,
     opacity: 1,
-    emissive: new THREE.Color(j20 ? 0x101820 : 0x1a1e24)
+    shininess: 56,
+    specular: new THREE.Color(0xd5e2ee),
+    emissive: new THREE.Color(j20 ? 0x10161e : 0x1a1e22)
   });
-  const edge = phong(j20 ? 0x1a2230 : 0x8e9bab, { transparent: true, opacity: 1 });
-  const wing = phong(j20 ? 0x243044 : 0xaeb8c6, { transparent: true, opacity: 1, side: THREE.DoubleSide });
-  const accent = phong(j20 ? 0x16323a : 0xd85a32, { transparent: true, opacity: 1, emissive: new THREE.Color(j20 ? 0x06262c : 0x4a1c10) });
-  const hot = new THREE.MeshBasicMaterial({ color: j20 ? 0x39e7ff : 0xff7a3c });
-  const canopy = phong(j20 ? 0xf0b15a : 0x9fd0ea, {
+  const bumpMat = phong(pal.upperHex, {
     transparent: true,
-    opacity: 0.82,
-    shininess: 80,
-    specular: new THREE.Color(0xffffff)
+    opacity: 1,
+    shininess: 40,
+    emissive: new THREE.Color(j20 ? 0x10161e : 0x1a1e22)
   });
-  const dark = phong(0x14181e, { transparent: true, opacity: 1 });
-  const stations = j20
+  const dark = phong(0x14181e, { transparent: true, opacity: 1, shininess: 16 });
+  const lip = phong(j20 ? 0x1c2832 : 0x8e99a3, { transparent: true, opacity: 1, shininess: 36 });
+  const hole = new THREE.MeshBasicMaterial({ color: 0x07080a, transparent: true, opacity: 1 });
+  const metal = phong(0x2c333a, {
+    transparent: true,
+    opacity: 1,
+    shininess: 72,
+    specular: new THREE.Color(0xf2f6f8),
+    emissive: new THREE.Color(0x101418)
+  });
+  const canopyMat = phong(pal.canopy, {
+    transparent: true,
+    opacity: 0.74,
+    shininess: 110,
+    specular: new THREE.Color(0xffffff),
+    emissive: new THREE.Color(pal.canopyEmit)
+  });
+  const flameMat = new THREE.MeshBasicMaterial({ color: pal.flame });
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: pal.glow,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  const hot = new THREE.MeshBasicMaterial({ color: pal.light });
+  const mats = {
+    dark, lip, hole, bump: bumpMat, metal, flame: flameMat, glow: glowMat
+  };
+
+  const skin = new Builder();
+  const body = j20
     ? [
-      { z: 4.4, ring: chine(0.04, 0.07, 0.02) },
-      { z: 3.5, ring: chine(0.32, 0.24, 0.03) },
-      { z: 2.55, ring: chine(0.62, 0.38, 0.02) },
-      { z: 1.55, ring: chine(0.95, 0.52, 0.04) },
-      { z: 0.35, ring: chine(1.2, 0.46, -0.02) },
-      { z: -0.75, ring: chine(1.02, 0.4, -0.02) },
-      { z: -1.7, ring: chine(0.72, 0.34, 0.0) },
-      { z: -2.45, ring: chine(0.42, 0.26, 0.02) }
+      [0.012, 0.028, 0.012, 4.75],
+      [0.07, 0.09, 0.04, 4.4],
+      [0.16, 0.16, 0.055, 3.95],
+      [0.32, 0.24, 0.05, 3.4],
+      [0.48, 0.32, 0.04, 2.8],
+      [0.66, 0.38, 0.03, 2.2],
+      [0.86, 0.4, 0.01, 1.55],
+      [1.02, 0.4, -0.015, 0.8],
+      [1.05, 0.38, -0.02, 0.05],
+      [0.94, 0.34, -0.015, -0.65],
+      [0.74, 0.3, 0.0, -1.25],
+      [0.52, 0.24, 0.01, -1.8],
+      [0.32, 0.18, 0.03, -2.25]
     ]
     : [
-      { z: 3.2, ring: chine(0.05, 0.1, 0.0) },
-      { z: 2.35, ring: chine(0.48, 0.34, 0.04) },
-      { z: 1.35, ring: chine(1.05, 0.58, 0.04) },
-      { z: 0.2, ring: chine(1.28, 0.5, -0.02) },
-      { z: -0.7, ring: chine(1.02, 0.4, -0.02) },
-      { z: -1.65, ring: chine(0.55, 0.3, 0.0) }
+      [0.04, 0.07, 0.03, 3.45],
+      [0.2, 0.2, 0.06, 2.95],
+      [0.46, 0.34, 0.06, 2.4],
+      [0.74, 0.46, 0.04, 1.75],
+      [1.0, 0.5, 0.02, 1.05],
+      [1.14, 0.46, -0.01, 0.3],
+      [1.08, 0.42, -0.02, -0.4],
+      [0.86, 0.36, -0.01, -1.0],
+      [0.58, 0.28, 0.01, -1.55],
+      [0.36, 0.2, 0.03, -1.95]
     ];
-  addMesh(group, loft(stations), body);
-
-  const wingPts = j20
-    ? [
-      { x: 0.55, y: 0.02, z: 1.85 },
-      { x: 1.35, y: 0.0, z: 0.85 },
-      { x: 4.55, y: -0.22, z: -0.15 },
-      { x: 3.95, y: -0.18, z: -1.05 },
-      { x: 0.72, y: -0.02, z: -1.55 }
-    ]
-    : [
-      { x: 0.7, y: 0.02, z: 0.85 },
-      { x: 2.75, y: -0.08, z: 0.05 },
-      { x: 2.45, y: -0.08, z: -1.05 },
-      { x: 0.62, y: -0.02, z: -1.25 }
-    ];
-  addMesh(group, poly(wingPts), wing);
-  addMesh(group, poly(mirrorX(wingPts)), wing);
-
-  if (j20) {
-    const canard = [
-      { x: 0.42, y: 0.08, z: 2.55 },
-      { x: 1.72, y: 0.16, z: 1.95 },
-      { x: 1.28, y: 0.1, z: 1.28 },
-      { x: 0.4, y: 0.05, z: 1.62 }
-    ];
-    addMesh(group, poly(canard), accent);
-    addMesh(group, poly(mirrorX(canard)), accent);
-    const tail = [
-      { x: 0.42, y: 0.22, z: -1.05 },
-      { x: 0.7, y: 0.16, z: -2.15 },
-      { x: 1.38, y: 1.55, z: -2.28 },
-      { x: 1.12, y: 1.48, z: -1.22 }
-    ];
-    addMesh(group, poly(tail), edge);
-    addMesh(group, poly(mirrorX(tail)), edge);
-  } else {
-    const fin = new THREE.BoxGeometry(0.12, 1.35, 1.05);
-    const finMesh = addMesh(group, fin, edge, 0, 0.95, -1.15);
-    finMesh.rotation.x = 0.35;
-    const stripe = new THREE.BoxGeometry(0.14, 0.16, 1.7);
-    addMesh(group, stripe, accent, 0, 0.22, 1.7);
+  addLoft(skin, body, pal, 18);
+  let reversed = false;
+  if (radialScore(skin.geometry()) < 0) {
+    skin.flip(0);
+    reversed = true;
   }
 
-  const nozzleGeo = new THREE.CylinderGeometry(j20 ? 0.2 : 0.26, j20 ? 0.26 : 0.32, 0.55, 10);
-  const nozzleMat = phong(0x2a3038, { transparent: true, opacity: 1, shininess: 50 });
-  const flameMat = new THREE.MeshBasicMaterial({ color: j20 ? 0x7ef6ff : 0xffb15a });
+  const wingCol = { upper: pal.upper, lower: pal.belly, le: pal.le, tip: pal.tip, tipAt: j20 ? 99 : 2.35 };
+  const main = j20
+    ? [
+      { x: 0.42, y: 0.04, lead: 1.72, trail: -1.42, thick: 0.12 },
+      { x: 1.45, y: -0.01, lead: 0.82, trail: -1.5, thick: 0.09 },
+      { x: 2.55, y: -0.08, lead: 0.02, trail: -1.48, thick: 0.065 },
+      { x: 3.5, y: -0.15, lead: -0.48, trail: -1.36, thick: 0.042 },
+      { x: 4.22, y: -0.21, lead: -0.78, trail: -1.12, thick: 0.022 }
+    ]
+    : [
+      { x: 0.42, y: 0.04, lead: 1.05, trail: -1.2, thick: 0.11 },
+      { x: 1.35, y: -0.01, lead: 0.38, trail: -1.25, thick: 0.075 },
+      { x: 2.2, y: -0.07, lead: -0.05, trail: -1.16, thick: 0.048 },
+      { x: 2.9, y: -0.12, lead: -0.28, trail: -0.95, thick: 0.026 }
+    ];
+  addPair(skin, main, wingCol);
+
+  if (j20) {
+    addPair(skin, [
+      { x: 0.32, y: 0.2, lead: 3.05, trail: 1.95, thick: 0.055 },
+      { x: 1.15, y: 0.34, lead: 2.62, trail: 1.78, thick: 0.04 },
+      { x: 1.95, y: 0.5, lead: 2.22, trail: 1.9, thick: 0.02 }
+    ], { upper: pal.canard, lower: pal.canard, le: pal.le });
+    addPair(skin, [
+      { x: 0.05, y: 0.03, lead: -1.45, trail: -2.4, thick: 0.035 },
+      { x: 0.34, y: 0.01, lead: -1.6, trail: -2.22, thick: 0.022 }
+    ], wingCol);
+    addNacelle(skin, [
+      { x: 0.46, y: -0.03, z: -1.5, r: 0.18 },
+      { x: 0.48, y: -0.04, z: -2.0, r: 0.27 },
+      { x: 0.46, y: -0.03, z: -2.5, r: 0.23 },
+      { x: 0.44, y: -0.02, z: -2.82, r: 0.19 }
+    ], pal.upper, reversed);
+    addNacelle(skin, [
+      { x: -0.46, y: -0.03, z: -1.5, r: 0.18 },
+      { x: -0.48, y: -0.04, z: -2.0, r: 0.27 },
+      { x: -0.46, y: -0.03, z: -2.5, r: 0.23 },
+      { x: -0.44, y: -0.02, z: -2.82, r: 0.19 }
+    ], pal.upper, reversed);
+  } else {
+    addPair(skin, [
+      { x: 0.28, y: 0.02, lead: -0.85, trail: -1.72, thick: 0.045 },
+      { x: 1.15, y: -0.02, lead: -1.05, trail: -1.68, thick: 0.028 }
+    ], wingCol);
+    addNacelle(skin, [
+      { x: 0, y: -0.02, z: -1.35, r: 0.26 },
+      { x: 0, y: -0.03, z: -1.75, r: 0.34 },
+      { x: 0, y: -0.02, z: -2.05, r: 0.3 }
+    ], pal.tail, reversed);
+  }
+
+  const finCol = { upper: pal.tail, lower: pal.tail, le: pal.le, tip: pal.tip };
+  addFins(skin, j20
+    ? {
+      cant: 0.52,
+      ox: 0.22,
+      oy: 0.16,
+      flashY: 99,
+      stations: [
+        { x: 0.02, y: 0, lead: -0.95, trail: -2.2, thick: 0.06 },
+        { x: 0.85, y: 0, lead: -1.28, trail: -2.36, thick: 0.04 },
+        { x: 1.78, y: 0, lead: -1.58, trail: -2.42, thick: 0.016 }
+      ]
+    }
+    : {
+      cant: 0.34,
+      ox: 0.16,
+      oy: 0.18,
+      flashY: 1.05,
+      stations: [
+        { x: 0.02, y: 0, lead: -0.55, trail: -1.7, thick: 0.055 },
+        { x: 0.62, y: 0, lead: -0.8, trail: -1.8, thick: 0.036 },
+        { x: 1.32, y: 0, lead: -1.02, trail: -1.86, thick: 0.016 }
+      ]
+    }, finCol);
+
+  const skinMesh = new THREE.Mesh(skin.geometry(), skinMat);
+  group.add(skinMesh);
+
+  addCanopy(
+    group,
+    canopyMat,
+    dark,
+    j20
+      ? bubbleStations(2.55, 1.2, 0.36, 0.3, 0.4, 10)
+      : bubbleStations(1.9, 0.72, 0.46, 0.36, 0.36, 10)
+  );
+
+  const intake = j20
+    ? { x: 0.9, y: -0.02, z: 0.95, r: 0.2, bump: 0.34 }
+    : { x: 0.7, y: 0.02, z: 1.22, r: 0.18, bump: 0.28 };
+  addIntake(group, mats, intake);
+  addIntake(group, mats, Object.assign({}, intake, { x: -intake.x }));
+
   const flames = [];
-  const nozzles = j20 ? [-0.42, 0.42] : [0];
-  nozzles.forEach((x) => {
-    const nozzle = addMesh(group, nozzleGeo, nozzleMat, x, -0.02, j20 ? -2.55 : -1.85);
-    nozzle.rotation.x = Math.PI / 2;
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.85, 8), flameMat);
-    flame.position.set(x, -0.02, j20 ? -3.05 : -2.25);
-    flame.rotation.x = -Math.PI / 2;
-    group.add(flame);
-    flames.push(flame);
-  });
-
-  const canopyMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), canopy);
-  canopyMesh.scale.set(j20 ? 0.42 : 0.48, j20 ? 0.28 : 0.34, j20 ? 0.72 : 0.62);
-  canopyMesh.position.set(0, j20 ? 0.38 : 0.42, j20 ? 1.45 : 0.85);
-  group.add(canopyMesh);
-
-  const intake = new THREE.BoxGeometry(0.55, 0.28, 0.9);
   if (j20) {
-    addMesh(group, intake, dark, -0.95, -0.22, 0.35);
-    addMesh(group, intake, dark, 0.95, -0.22, 0.35);
-    const bump = new THREE.SphereGeometry(0.22, 8, 6);
-    addMesh(group, bump, edge, -0.95, -0.02, 0.85).scale.set(1.1, 0.6, 0.7);
-    addMesh(group, bump, edge, 0.95, -0.02, 0.85).scale.set(1.1, 0.6, 0.7);
+    flames.push(...addNozzle(group, mats, 0.46, -0.03, -2.78, 0.2));
+    flames.push(...addNozzle(group, mats, -0.46, -0.03, -2.78, 0.2));
   } else {
-    addMesh(group, intake, dark, -0.72, -0.18, 0.15);
-    addMesh(group, intake, dark, 0.72, -0.18, 0.15);
+    flames.push(...addNozzle(group, mats, 0, -0.02, -2.02, 0.32));
   }
 
-  const lightGeo = new THREE.BoxGeometry(0.18, 0.08, 0.28);
-  const span = j20 ? 4.35 : 2.55;
-  addMesh(group, lightGeo, hot, span, -0.12, j20 ? -0.35 : -0.2);
-  addMesh(group, lightGeo, hot, -span, -0.12, j20 ? -0.35 : -0.2);
+  const pitot = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.02, j20 ? 0.55 : 0.32, 6), dark);
+  pitot.rotation.x = Math.PI / 2;
+  pitot.position.set(0, j20 ? 0.02 : 0.04, j20 ? 5.05 : 3.62);
+  group.add(pitot);
 
-  group.userData.mats = [body, edge, wing, accent, canopy, dark, nozzleMat];
+  const lightGeo = new THREE.BoxGeometry(0.16, 0.07, 0.26);
+  const span = j20 ? 4.05 : 2.72;
+  const lightZ = j20 ? -0.95 : -0.55;
+  const lightY = j20 ? -0.16 : -0.08;
+  addMesh(group, lightGeo, hot, span, lightY, lightZ);
+  addMesh(group, lightGeo, hot, -span, lightY, lightZ);
+
+  group.userData.skin = skinMesh;
+  group.userData.mats = [skinMat, bumpMat, dark, lip, hole, metal, canopyMat, hot];
   group.userData.flames = flames;
   group.userData.kind = kind;
   return group;
@@ -575,6 +960,7 @@ export function createView(canvas) {
   let reduced = false;
   let clock = 0;
   let dprCap = 1.35;
+  let cameraLock = null;
 
   function resize() {
     const w = canvas.clientWidth || 1;
@@ -781,6 +1167,10 @@ export function createView(canvas) {
     camera.position.lerp(_cam, game.phase === 'title' ? 0.08 : blend);
     _lookCur.lerp(_look, blend);
     camera.lookAt(_lookCur);
+    if (cameraLock) {
+      camera.position.set(cameraLock[0], cameraLock[1], cameraLock[2]);
+      camera.lookAt(cameraLock[3], cameraLock[4], cameraLock[5]);
+    }
     renderer.render(scene, camera);
   }
 
@@ -788,6 +1178,8 @@ export function createView(canvas) {
   return {
     update,
     resize,
-    setReduced(v) { reduced = !!v; }
+    setReduced(v) { reduced = !!v; },
+    lockCamera(px, py, pz, lx, ly, lz) { cameraLock = [px, py, pz, lx, ly, lz]; },
+    unlockCamera() { cameraLock = null; }
   };
 }

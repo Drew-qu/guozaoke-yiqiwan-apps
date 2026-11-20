@@ -26,6 +26,7 @@ python3 /path/to/developer-kit/tools/preview.py apps/canglan --port 8765
 ```bash
 cd apps/canglan
 node logic.test.js
+node gfx.test.js
 ```
 
 ## 打包上传

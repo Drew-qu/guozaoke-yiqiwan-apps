@@ -626,6 +626,7 @@ if (TEST_MODE) {
   });
   window.__canglan = {
     game,
+    view,
     start: beginRun,
     snapshot() {
       return {
