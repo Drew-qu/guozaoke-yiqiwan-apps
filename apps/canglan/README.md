@@ -4,6 +4,8 @@
 
 三维画面使用随包的 Three.js（MIT，见 `vendor/LICENSE-three.txt`），模型、海面和音效都在本地用代码生成。
 
+当前 1.0.4：翼型和机身更密，材质为 PBR + ACES，舱盖和舰体有层次。玩家可见名称仍是折影、掠影、雷鸦、潮哨、潮垒。离开或关闭页面会停掉循环引擎声。
+
 ## 本地预览
 
 在仓库根目录：
@@ -35,7 +37,7 @@ node gfx.test.js
 
 ```bash
 cd apps/canglan
-zip /tmp/canglan-1.0.0.zip \
+zip /tmp/canglan-1.0.4.zip \
   manifest.json index.html style.css app.js logic.js gfx.js image.jpeg \
   vendor/three.module.min.js vendor/LICENSE-three.txt
 ```

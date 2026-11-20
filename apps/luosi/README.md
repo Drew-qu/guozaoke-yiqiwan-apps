@@ -7,7 +7,7 @@
 1. **直接试玩**：双击 `index.html` 即可在浏览器中直接体验（无平台 SDK 时自动降级使用 `localStorage`）。
 2. **一起玩工具包预览**：
 ```bash
-python /path/to/developer-kit/tools/preview.py /path/to/yiqiwan-luosi-v2 --port 8766
+python /path/to/developer-kit/tools/preview.py apps/luosi --port 8766
 ```
 
 ## 打包上传
@@ -15,7 +15,7 @@ python /path/to/developer-kit/tools/preview.py /path/to/yiqiwan-luosi-v2 --port 
 ```bash
 cd apps/luosi
 # 勿打进 README.md
-zip /tmp/luosi-1.0.0.zip manifest.json index.html app.js style.css
+zip /tmp/luosi-1.0.0.zip manifest.json index.html app.js style.css image.jpeg
 python /path/to/developer-kit/tools/check_package.py /tmp/luosi-1.0.0.zip
 ```
 
