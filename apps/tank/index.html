@@ -5,33 +5,68 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>抛物线乐园</title>
-  <link rel="stylesheet" href="style.css?v=1.0.2">
+  <link rel="stylesheet" href="style.css?v=2.0.1">
 </head>
 <body>
   <div class="app" id="app">
     <header class="top">
       <div class="titles">
-        <h1>🎯 抛物线乐园</h1>
-        <p id="modeSub" class="sub">单人闯关 · 第 1 关</p>
+        <h1>抛物线乐园 <small id="modeSub">单人闯关 · 第 1 关</small></h1>
       </div>
       <div class="meters" aria-live="polite">
-        <span id="meterWind" class="wind-pill">🍃 无风 0</span>
+        <span id="meterWind" class="wind-pill">无风 0</span>
+        <span id="meterWeather" class="weather-pill" title="">晴朗</span>
+        <span id="meterWave" class="wave-pill hidden">波 1</span>
+        <span id="meterShots" class="shots-pill hidden">发 8</span>
         <span id="meterTurn">我方回合</span>
-        <span id="meterScore">得分 0</span>
-        <button type="button" id="btnSound" class="meter-btn" aria-pressed="true" title="音效开关">🔊</button>
-        <button type="button" id="btnMenu" class="meter-btn menu-btn" aria-expanded="false" title="选角与模式">菜单</button>
+        <span id="meterScore">本局 0</span>
+        <span id="meterRun" class="hidden">累计 0</span>
+        <button type="button" id="btnSound" class="meter-btn" aria-pressed="true" title="音效开关">音效</button>
+        <button type="button" id="btnMenu" class="meter-btn menu-btn" aria-expanded="false" title="菜单">菜单</button>
       </div>
     </header>
+
+    <div class="round-hud" id="roundHud" aria-live="polite">
+      <div class="hud-side mine">
+        <strong id="hudMineName">我方</strong>
+        <div class="hp-bar"><i id="hudMineHp" style="width:100%"></i></div>
+        <span id="hudMineHpText">145/145</span>
+      </div>
+      <div class="hud-mid">
+        <span id="hudRound">回合 0</span>
+      </div>
+      <div class="hud-side foe">
+        <strong id="hudFoeName">对手</strong>
+        <div class="hp-bar"><i id="hudFoeHp" style="width:100%"></i></div>
+        <span id="hudFoeHpText">—</span>
+      </div>
+    </div>
+    <div id="hudLeader" class="leader-hud hidden" aria-live="polite">
+      <div class="leader-hud-meta">
+        <strong id="hudLeaderName">章末</strong>
+        <span id="hudLeaderPhase">阶段</span>
+      </div>
+      <div class="hp-bar leader"><i id="hudLeaderHp" style="width:100%"></i></div>
+      <span id="hudLeaderHpText">—</span>
+    </div>
 
     <div class="main">
       <section class="stage" aria-label="抛物线乐园场地">
         <div class="canvas-wrap">
           <canvas id="board" width="840" height="470" role="img" aria-label="横版蓄力抛物线小游戏"></canvas>
 
-          <div id="modalOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+          <div id="chargeOverlay" class="charge-overlay hidden" aria-live="assertive">
+            <p class="charge-label">正在蓄力</p>
+            <p id="chargePct" class="charge-pct">0%</p>
+            <p class="charge-tip">保持按住 · 松手抛出（滑向取消区可取消）</p>
+            <div id="cancelZone" class="cancel-zone" aria-hidden="true">滑向这里取消</div>
+          </div>
+
+          <div id="modalOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
             <div class="modal-card">
               <p id="modalKicker" class="modal-kicker">本局完成</p>
-              <h2 id="modalTitle">🎉 挑战成功！</h2>
+              <h2 id="modalTitle">通关啦！</h2>
+              <p id="modalStars" class="modal-stars" aria-label="星级"></p>
               <p id="modalSummary" class="modal-summary"></p>
               <div class="modal-actions">
                 <button type="button" id="btnModalPrimary" class="primary">下一关</button>
@@ -40,11 +75,20 @@
               </div>
             </div>
           </div>
+
+          <div id="pickOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+            <div class="modal-card pick-card">
+              <p class="modal-kicker">波次通关</p>
+              <h2 id="pickTitle">选择一项增益</h2>
+              <p id="pickSummary" class="modal-summary">三选一，增益后进入下一波</p>
+              <div id="pickChoices" class="pick-choices"></div>
+            </div>
+          </div>
         </div>
 
         <div class="cockpit">
           <div class="loadout-row">
-            <div class="weapon-group" role="group" aria-label="主副技能">
+            <div class="skill-group" role="group" aria-label="主副技能">
               <button type="button" id="btnWep1" class="wep-btn active">
                 <span id="wep1Name">1号 普通</span><em>∞</em>
               </button>
@@ -54,16 +98,16 @@
             </div>
             <div class="item-group" role="group" aria-label="辅助道具">
               <button type="button" class="item-btn" data-item="tp" title="瞬移：下一发落到哪里就移到哪里">
-                <span>🌀 瞬移</span><em id="cntTp">1</em>
+                <span>瞬移</span><em id="cntTp">1</em>
               </button>
               <button type="button" class="item-btn" data-item="heal" title="医疗包：立刻回复 40 体力">
-                <span>💊 回复</span><em id="cntHeal">1</em>
+                <span>回复</span><em id="cntHeal">1</em>
               </button>
               <button type="button" class="item-btn" data-item="power" title="加强：下一发效果提升75%">
-                <span>⚡ 加强</span><em id="cntPower">1</em>
+                <span>加强</span><em id="cntPower">1</em>
               </button>
-              <button type="button" class="item-btn" data-item="double" title="双发：本回合连续抛出两次">
-                <span>✨ 双发</span><em id="cntDouble">1</em>
+              <button type="button" class="item-btn" data-item="double" title="连抛：本回合连续抛出两次">
+                <span>连抛</span><em id="cntDouble">1</em>
               </button>
             </div>
           </div>
@@ -88,47 +132,75 @@
               </div>
             </div>
 
-            <button type="button" id="btnFire" class="fire-btn" title="按住蓄力，在按钮上松手抛出。滑出按钮或按 Esc 取消" aria-label="按住蓄力，滑出或按 Esc 取消">
-              <span class="fire-label-full">按住抛出</span>
-              <span class="fire-label-short">抛出</span>
-            </button>
+            <div class="throw-cluster">
+              <div id="cancelZoneDock" class="cancel-dock" aria-hidden="true">取消</div>
+              <button type="button" id="btnThrow" class="throw-btn" title="推荐：在地图拖出虚线后松手抛出。也可按住本键/空格蓄力，滑向取消区或 Esc 取消" aria-label="按住蓄力抛出，滑向取消区取消；也可拖地图松手抛出">
+                <span class="throw-label-full">按住抛出</span>
+                <span class="throw-label-short">抛出</span>
+              </button>
+            </div>
           </div>
         </div>
-        <p id="hint" class="hint" role="status">手机：拖动画布调角度，按住「抛出」蓄力松手发射。电脑可直接拖拽发射。</p>
+        <p id="aimTip" class="aim-tip" aria-hidden="true">主操作：拖地图虚线 → 松手抛出</p>
+        <p id="hint" class="hint" role="status">推荐：在地图按住拖出虚线，松手即抛出。也可按住「抛出」/空格蓄力。</p>
       </section>
 
       <div id="sideBackdrop" class="side-backdrop" hidden></div>
       <aside class="side" id="sidePanel" aria-label="选角、模式与排行榜">
         <div class="panel">
-          <h2>选择出战角色</h2>
-          <div class="tank-grid" role="group" aria-label="选择角色">
-            <button type="button" class="tank-card active" data-tank="cannon">
-              <strong>🛡️ 夯夯</strong>
-              <span>高体力 · 大范围</span>
+          <h2>选择角色</h2>
+          <div class="role-grid" role="group" aria-label="选择角色">
+            <button type="button" class="role-card active" data-role="cannon">
+              <canvas class="role-art" width="112" height="112" aria-hidden="true"></canvas>
+              <strong>夯夯</strong>
+              <span>稳健 · 挖地造形</span>
+              <em>体力150 · 普通36 · 进阶58 · 地形×1.45</em>
             </button>
-            <button type="button" class="tank-card" data-tank="cross">
-              <strong>⚡ 闪闪</strong>
-              <span>机动 · 三连</span>
+            <button type="button" class="role-card" data-role="cross">
+              <canvas class="role-art" width="112" height="112" aria-hidden="true"></canvas>
+              <strong>闪闪</strong>
+              <span>灵巧 · 机动三连</span>
+              <em>体力118 · 移速92 · 三连22×3</em>
             </button>
-            <button type="button" class="tank-card" data-tank="meteor">
-              <strong>🚀 星轨</strong>
+            <button type="button" class="role-card" data-role="meteor">
+              <canvas class="role-art" width="112" height="112" aria-hidden="true"></canvas>
+              <strong>星轨</strong>
               <span>精准 · 寻踪</span>
+              <em>体力112 · 寻踪48</em>
             </button>
-            <button type="button" class="tank-card" data-tank="dragon">
-              <strong>🔥 焰焰</strong>
-              <span>控制 · 持续区</span>
+            <button type="button" class="role-card" data-role="dragon">
+              <canvas class="role-art" width="112" height="112" aria-hidden="true"></canvas>
+              <strong>焰焰</strong>
+              <span>控场 · 持续区</span>
+              <em>体力128 · 热区14/回合</em>
             </button>
           </div>
         </div>
 
         <div class="panel">
           <h2>模式</h2>
-          <div class="mode-row" role="group" aria-label="选择模式">
+          <div class="mode-row modes-wide" role="group" aria-label="选择模式">
             <button type="button" id="btnCampaign" class="chip active">单人闯关</button>
             <button type="button" id="btnDaily" class="chip">每日同种</button>
-            <button type="button" id="btnPvp" class="chip full-span">👥 双人同屏</button>
+            <button type="button" id="btnSurvival" class="chip">耐力无尽</button>
+            <button type="button" id="btnSnipe" class="chip">落点练习</button>
+            <button type="button" id="btnLeader" class="chip">章末关</button>
+            <button type="button" id="btnPvp" class="chip">双人同屏</button>
           </div>
-          <p class="muted tight" id="modeDesc">悬空桥可挖开，把对方送进凹地或落入水区！</p>
+          <p class="muted tight" id="modeDesc">悬空桥可挖开，把对方送进凹地或水区！</p>
+        </div>
+
+        <div class="panel">
+          <h2>技能数值</h2>
+          <div id="wepStats" class="wep-stats" aria-live="polite"></div>
+          <p class="muted tight">靠近中心加分更高；一次碰上多人算多目标；挖穿后落入水区会记入统计。</p>
+        </div>
+
+        <div class="panel" id="levelPanel">
+          <h2>选关</h2>
+          <div id="chapterTabs" class="chapter-tabs" role="tablist" aria-label="章节"></div>
+          <p class="muted tight" id="chapterLabel">第一章 · 绿色丘陵</p>
+          <div id="levelList" class="level-list" role="group" aria-label="闯关选关"></div>
         </div>
 
         <div class="panel">
@@ -154,6 +226,7 @@
     </div>
   </div>
   <script defer src="/sdk/v1/yiqiwan.js?v=1.13.0"></script>
-  <script defer src="app.js?v=1.0.3"></script>
+  <script defer src="levels.js?v=2.0.1"></script>
+  <script defer src="app.js?v=2.0.1"></script>
 </body>
 </html>
